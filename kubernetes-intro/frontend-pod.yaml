@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  labels:
+    run: frontend
+  name: frontend
+spec:
+  containers:
+  - image: sergeykudelin/frontend:0.0.1
+    name: frontend
+    resources:
+      limits:
+        cpu: "1"
+        memory: "250Mi"
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}

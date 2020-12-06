@@ -1,0 +1,29 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: otus-k8s-web
+  labels:
+    run: otus-k8s-web
+spec:
+  containers:
+    - name: otus-k8s-web
+      image: sergeykudelin/otus-k8s-web:alpine
+      ports:
+        - containerPort: 8000
+      volumeMounts:
+        - name: otus-k8s-web-volume
+          mountPath: /app
+      resources:
+        limits:
+          cpu: "1"
+          memory: "1"
+  initContainers:
+    - name: init
+      image: busybox:1.32.0
+      command: ['sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh']
+      volumeMounts:
+        - name: otus-k8s-web-volume
+          mountPath: /app
+  volumes:
+    - name: otus-k8s-web-volume
+      emptyDir: {}
