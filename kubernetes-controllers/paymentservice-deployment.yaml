@@ -18,9 +18,12 @@ spec:
       - image: sergeykudelin/paymentservice:0.0.2
         name: paymentservice
         resources:
+          requests:
+            cpu: 100m
+            memory: 64Mi
           limits:
-            cpu: "1"
-            memory: "250Mi"
+            cpu: 200m
+            memory: 128Mi
         env:
           - name: PORT
             value: "8080"
