@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - image: sergeykudelin/paymentservice:0.0.1
-        name: paymentservice
+        name: server
         resources:
           requests:
             cpu: 100m
