@@ -16,4 +16,4 @@ spec:
     spec:
       containers:
       - name: server
-        image: sergeykudelin/paymentservice:v0.0.2
+        image: sergeykudelin/paymentservice:0.0.2
