@@ -17,10 +17,6 @@ spec:
       containers:
       - image: sergeykudelin/frontend:0.0.2
         name: server
-        resources:
-          limits:
-            cpu: "1"
-            memory: "250Mi"
         env:
           - name: PORT
             value: "8080"
