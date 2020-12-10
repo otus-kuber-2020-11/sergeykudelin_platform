@@ -16,7 +16,7 @@ spec:
     spec:
       containers:
       - image: sergeykudelin/frontend:0.0.2
-        name: frontend
+        name: server
         readinessProbe:
             initialDelaySeconds: 10
             httpGet:
