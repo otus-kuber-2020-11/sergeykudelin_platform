@@ -34,3 +34,32 @@
 - Устранены проблемы манифеста созданого на базе ad-hoc запуска и сохранены в отдельный манифест
 
     ```./kubernetes-intro/frontend-pod-healthy.yaml```
+
+## kubernetes-controllers
+
+### frontend-deployment
+
+- Добавил отсутствующий selector
+- RS преобразован в Deployment
+- Почему pods не заехали с новой версией, так как они уже существовали и не перезапускали, а при этом:
+
+---
+
+ReplicationController
+
+- Первый заход в сторону управления подами
+    - до сих пор в API core/v1
+- Следит за тем, чтобы число подов соответствовало заданному
+    - Умеет пересоздавать Podы при отказе узла (обычные "голые" поды умирают вместе нодой)
+    - Умеет добавлять/удалять Podы не пересоздавая всю группу
+- НЕ проверяет соответствие запущенных Podов шаблону
+
+---
+### paymentservice-deployment
+
+- Создан манифест с Blue-Green методом обновления
+- Создан манифест с Reverse Rolling Update методом обновления
+
+### node-exporter-daemon.yaml
+
+- Запуск на master node-ах можно сделать через tolerations + effect, согласно документации [link](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset)
