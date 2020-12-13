@@ -61,7 +61,7 @@
 
 ---
     kubectl create serviceaccount bob --dry-run=client -o yaml > 01-serviceaccount-bob.yaml
-    kubectl create rolebinding bob-rolebinding --clusterrole=admin --serviceaccount=default:bob  --dry-run=client -o yaml > 02-rolebinding-bob.yaml
+    kubectl create clusterrolebinding bob-rolebinding --clusterrole=admin --serviceaccount=default:bob  --dry-run=client -o yaml > 02-rolebinding-bob.yaml
     kubectl create serviceaccount dave --dry-run=client -o yaml > 03-serviceaccount-dave.yaml
 
 ### Task02
@@ -74,7 +74,7 @@
     kubectl create ns prometheus --dry-run=client -o yaml > 01-ns-prometheus.yaml
     kubectl create serviceaccount carol --namespace prometheus --dry-run=client -o yaml > 02-serviceaccount-carol.yaml
     kubectl create clusterrole pods-viewers --verb=get,list,watch --resource=pods,pods/status --dry-run=client -o yaml > 03-clusterrole-pods-viewers.yaml
-    kubectl create rolebinding prometheus-pods-viewers --clusterrole=pods_viewers --group=system/serviceaccount/prometheus --dry-run=client -o yaml > 04-rolebinding-prometheus-all.yaml
+    kubectl create clusterrolebinding prometheus-pods-viewers --clusterrole=pods_viewers --group=system/serviceaccount/prometheus --dry-run=client -o yaml > 04-rolebinding-prometheus-all.yaml
 
 ### Task03
 
@@ -92,5 +92,3 @@
     kubectl create rolebinding jane-admin --namespace=dev --role=dev-admin --serviceaccount=dev:jane --dry-run=client -o yaml > 05-jane-rolebinding.yaml
     kubectl create serviceaccount ken --namespace dev --dry-run=client -o yaml > 06-serviceaccount-ken.yaml
     kubectl create rolebinding ken-viewer --namespace=dev --role=dev-viewer --serviceaccount=dev:ken --dry-run=client -o yaml > 07-ken-rolebinding.yaml
-
-### Check
