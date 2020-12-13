@@ -87,8 +87,6 @@
 ---
     kubectl create ns dev --dry-run=client -o yaml > 01-ns-dev.yaml
     kubectl create serviceaccount jane --namespace dev --dry-run=client -o yaml > 02-serviceaccount-jane.yaml
-    kubectl create role dev-admin --resource="*" --verb="*" --namespace=dev --dry-run=client -o yaml > 03-role-dev-admin.yaml
-    kubectl create role dev-viewer --resource="*" --verb="get,list,watch" --namespace=dev --dry-run=client -o yaml > 04-role-dev-viewer.yaml
-    kubectl create rolebinding jane-admin --namespace=dev --role=dev-admin --serviceaccount=dev:jane --dry-run=client -o yaml > 05-jane-rolebinding.yaml
+    kubectl create rolebinding jane-admin --namespace=dev --clusterrole=admin --serviceaccount=dev:jane --dry-run=client -o yaml > 05-jane-rolebinding.yaml
     kubectl create serviceaccount ken --namespace dev --dry-run=client -o yaml > 06-serviceaccount-ken.yaml
-    kubectl create rolebinding ken-viewer --namespace=dev --role=dev-viewer --serviceaccount=dev:ken --dry-run=client -o yaml > 07-ken-rolebinding.yaml
+    kubectl create rolebinding ken-viewer --namespace=dev --clusterrole=view --serviceaccount=dev:ken --dry-run=client -o yaml > 07-ken-rolebinding.yaml
