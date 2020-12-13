@@ -74,7 +74,7 @@
     kubectl create ns prometheus --dry-run=client -o yaml > 01-ns-prometheus.yaml
     kubectl create serviceaccount carol --namespace prometheus --dry-run=client -o yaml > 02-serviceaccount-carol.yaml
     kubectl create clusterrole pods-viewers --verb=get,list,watch --resource=pods,pods/status --dry-run=client -o yaml > 03-clusterrole-pods-viewers.yaml
-    kubectl create clusterrolebinding prometheus-pods-viewers --clusterrole=pods_viewers --group=system/serviceaccount/prometheus --dry-run=client -o yaml > 04-rolebinding-prometheus-all.yaml
+    kubectl create clusterrolebinding prometheus-pods-viewers --clusterrole=pods_viewers --group=system:serviceaccount:prometheus --dry-run=client -o yaml > 04-rolebinding-prometheus-all.yaml
 
 ### Task03
 
