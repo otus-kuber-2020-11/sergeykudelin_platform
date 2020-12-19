@@ -8,6 +8,13 @@ spec:
   containers:
     - name: otus-k8s-web
       image: sergeykudelin/otus-k8s-web:alpine
+      readinessProbe:
+        httpGet:
+          path: /index.html
+          port: 80
+      livenessProbe:
+        tcpSocket:
+          port: 8000
       ports:
         - containerPort: 8000
       volumeMounts:
