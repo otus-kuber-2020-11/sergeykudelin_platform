@@ -90,3 +90,19 @@
     kubectl create rolebinding jane-admin --namespace=dev --clusterrole=admin --serviceaccount=dev:jane --dry-run=client -o yaml > 05-jane-rolebinding.yaml
     kubectl create serviceaccount ken --namespace dev --dry-run=client -o yaml > 06-serviceaccount-ken.yaml
     kubectl create rolebinding ken-viewer --namespace=dev --clusterrole=view --serviceaccount=dev:ken --dry-run=client -o yaml > 07-ken-rolebinding.yaml
+
+### Task04
+
+#### Базовые задачи
+
+- Знакомство и создание service
+- Мониторинг iptables
+- Активация IPVS
+- Установка MetalLB
+- Создание минимального Ingress
+
+#### Задания со *
+
+- Проброс CoreDNS через MetalLB
+- Проброс Kubernetes Dashboard через Ingress
+- Канареечный деплой с помощью Ingress на базе HEADER
