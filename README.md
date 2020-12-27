@@ -106,3 +106,11 @@
 - Проброс CoreDNS через MetalLB
 - Проброс Kubernetes Dashboard через Ingress
 - Канареечный деплой с помощью Ingress на базе HEADER
+
+### Task05 - Kubernetes Volumes
+
+- Созданы манифесты для использования minio
+
+#### Дополнительные задачи
+
+- Добавлены манифесты для secret и перенастроен манифест Statefulset с их использованием
