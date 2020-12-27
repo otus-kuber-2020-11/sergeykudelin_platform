@@ -114,3 +114,42 @@
 #### Дополнительные задачи
 
 - Добавлены манифесты для secret и перенастроен манифест Statefulset с их использованием
+
+### Task06
+
+- Resolve issue with deprecated repo
+
+```➜  helm repo add stable https://kubernetes-charts.storage.googleapis.com```
+```Error: repo "https://kubernetes-charts.storage.googleapis.com" is no longer available; try "https://charts.helm.sh/stable" instead```
+```➜ helm repo add stable https://charts.helm.sh/stable```
+```"stable" has been added to your repositories```
+
+#### Chartmuseum
+
+- Create namespace & install ingress-nginx estead deprecated nginx-ingress
+- Check IP
+```kubectl get service --namespace ingress-nginx```
+- Create namespace & install certbot v1.0
+```helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.1.0 --set installCRDs=true```
+- Check selfsign certs
+```kubectl apply -f cert-manager/test-resources.yaml```
+- Create clusterissuer
+```kubectl apply -f cert-manager/letsencrypt-production.yaml```
+- Deploy chartmuseum
+```helm upgrade --install chartmuseum stable/chartmuseum --wait --namespace=chartmuseum --version=2.13.2 -f chartmuseum/values.yaml```
+- Check certs
+```kubectl get certificate --namespace chartmuseum```
+- Check web page
+
+#### Chartmuseum wt star
+
+- Use plugin to push
+```helm plugin install https://github.com/chartmuseum/helm-push```
+- Add repo wt creds
+```helm repo add --username YOUR_USERNAME --password YOUR_PSWD cm_repo http://chartmuseum.35.202.229.251.nip.io```
+- For push
+```helm push YOUR_CHART cm_repo```
+- For search
+```helm search YOUR_CHART```
+- For update
+```helm repo update cm_repo```
