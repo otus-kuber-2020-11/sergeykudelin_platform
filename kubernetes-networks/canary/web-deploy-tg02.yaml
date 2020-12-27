@@ -28,6 +28,10 @@ spec:
           httpGet:
             path: /index.html
             port: 8000
+        resources:
+          limits:
+            cpu: "0.1"
+            memory: "100Mi"
         volumeMounts:
         - name: app
           mountPath: /app
