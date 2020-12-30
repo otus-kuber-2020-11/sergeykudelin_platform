@@ -1,0 +1,60 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-tg02
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: web-tg02 
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 100%
+  template:
+    metadata:
+      labels:
+        app: web-tg02 
+    spec:
+      containers:
+      - name: web
+        image: sergeykudelin/otus-k8s-web:alpine
+        livenessProbe:
+          tcpSocket:
+            port: 8000
+        readinessProbe:
+          httpGet:
+            path: /index.html
+            port: 8000
+        resources:
+          limits:
+            cpu: "0.1"
+            memory: "100Mi"
+        volumeMounts:
+        - name: app
+          mountPath: /app
+      initContainers:
+      - name: init-web
+        image: busybox:1.31.0
+        command: ['sh', '-c', 'wget -O- https://tinyurl.com/otus-k8s-intro | sh']
+        volumeMounts:
+        - name: app
+          mountPath: /app
+      volumes:
+      - name: app
+        emptyDir: {}
+---        
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc-prod
+spec:
+  selector:
+    app: web-tg02 
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8000
+        
