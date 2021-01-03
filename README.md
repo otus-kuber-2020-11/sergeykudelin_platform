@@ -91,9 +91,9 @@
     kubectl create serviceaccount ken --namespace dev --dry-run=client -o yaml > 06-serviceaccount-ken.yaml
     kubectl create rolebinding ken-viewer --namespace=dev --clusterrole=view --serviceaccount=dev:ken --dry-run=client -o yaml > 07-ken-rolebinding.yaml
 
-### Task04
+## kubernetes-network
 
-#### Базовые задачи
+### Базовые задачи
 
 - Знакомство и создание service
 - Мониторинг iptables
@@ -101,21 +101,21 @@
 - Установка MetalLB
 - Создание минимального Ingress
 
-#### Задания со *
+### Задания со *
 
 - Проброс CoreDNS через MetalLB
 - Проброс Kubernetes Dashboard через Ingress
 - Канареечный деплой с помощью Ingress на базе HEADER
 
-### Task05 - Kubernetes Volumes
+## Kubernetes-volumes
 
 - Созданы манифесты для использования minio
 
-#### Дополнительные задачи
+### Дополнительные задачи
 
 - Добавлены манифесты для secret и перенастроен манифест Statefulset с их использованием
 
-### Task06
+## Kubernetes-templating
 
 - Resolve issue with deprecated repo
 
@@ -124,7 +124,11 @@
 ```➜ helm repo add stable https://charts.helm.sh/stable```
 ```"stable" has been added to your repositories```
 
-#### Chartmuseum
+### Ingress-nginx
+
+```helm upgrade --install ingress-nginx stable/ingress-nginx --wait --namespace=ingress-nginx --version=3.17.0```
+
+### Chartmuseum
 
 - Create namespace & install ingress-nginx estead deprecated nginx-ingress
 - Check IP
@@ -132,16 +136,17 @@
 - Create namespace & install certbot v1.0
 ```helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.1.0 --set installCRDs=true```
 - Check selfsign certs
-```kubectl apply -f cert-manager/test-resources.yaml```
+```kubectl apply -f kubernetes-templating/cert-manager/test-resources.yaml```
 - Create clusterissuer
-```kubectl apply -f cert-manager/letsencrypt-production.yaml```
+```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-production.yaml```
+```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-stage.yaml```
 - Deploy chartmuseum
-```helm upgrade --install chartmuseum stable/chartmuseum --wait --namespace=chartmuseum --version=2.13.2 -f chartmuseum/values.yaml```
+```helm upgrade --install chartmuseum stable/chartmuseum --wait --namespace=chartmuseum --version=2.13.2 -f kubernetes-templating/chartmuseum/values.yaml```
 - Check certs
 ```kubectl get certificate --namespace chartmuseum```
 - Check web page
 
-#### Chartmuseum wt star
+### Chartmuseum wt star
 
 - Use plugin to push
 ```helm plugin install https://github.com/chartmuseum/helm-push```
@@ -153,3 +158,8 @@
 ```helm search YOUR_CHART```
 - For update
 ```helm repo update cm_repo```
+
+### Kubecfg
+
+- Active Beta Function on GKE
+➜  python-speech git:(master) ✗ gcloud beta container clusters update cluster-1 --enable-vertical-pod-autoscaling

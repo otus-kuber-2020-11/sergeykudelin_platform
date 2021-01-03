@@ -16,7 +16,7 @@ expose:
     # "ca.crt" - the certificate of CA (optional), this enables the download
     # link on portal to download the certificate of CA
     # These files will be generated automatically if the "secretName" is not set
-    secretName: "harbor.35.202.229.251.nip.io"
+    secretName: "harbor.146.148.97.58.nip.io"
     # By default, the Notary service will use the same cert and key as
     # described above. Fill the name of secret if you want to use a
     # separated one. Only needed when the type is "ingress".
@@ -26,7 +26,7 @@ expose:
     commonName: ""
   ingress:
     hosts:
-      core: harbor.35.202.229.251.nip.io
+      core: harbor.146.148.97.58.nip.io
     # notary: notary.harbor.domain
     # set to the type of ingress controller if it has specific requirements.
     # leave as `default` for most ingress controllers.
