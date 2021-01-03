@@ -58,7 +58,7 @@ local common(name) = {
             containers_+: {
               common+: {
                 name: "server",
-                image: "gcr.io/google-samples/microservices-demo/paymentservice:latest",
+                image: "avtandilko/paymentservice:latest",
               },
             },
           },
@@ -75,7 +75,7 @@ local common(name) = {
             containers_+: {
               common+: {
                 name: "server",
-                image: "gcr.io/google-samples/microservices-demo/shippingservice:latest",
+                image: "avtandilko/shippingservice:latest",
               },
             },
           },
