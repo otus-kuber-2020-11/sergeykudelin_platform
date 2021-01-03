@@ -163,7 +163,7 @@
 - Use plugin to push
 ```helm plugin install https://github.com/chartmuseum/helm-push```
 - Add repo wt creds
-```helm repo add --username YOUR_USERNAME --password YOUR_PSWD cm_repo http://chartmuseum.35.202.229.251.nip.io```
+```helm repo add --username YOUR_USERNAME --password YOUR_PSWD cm_repo http://chartmuseum.146.148.97.58.nip.io```
 - For push
 ```helm push YOUR_CHART cm_repo```
 - For search
