@@ -37,6 +37,8 @@
 
 ## kubernetes-controllers
 
+---
+
 ### frontend-deployment
 
 - Добавил отсутствующий selector
@@ -53,6 +55,8 @@
 - Запуск на master node-ах можно сделать через tolerations + effect, согласно документации [link](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset)
 
 ## kubernetes-security
+
+---
 
 ### Task01
 
@@ -93,6 +97,8 @@
 
 ## kubernetes-network
 
+---
+
 ### Базовые задачи
 
 - Знакомство и создание service
@@ -109,6 +115,8 @@
 
 ## Kubernetes-volumes
 
+---
+
 - Созданы манифесты для использования minio
 
 ### Дополнительные задачи
@@ -116,6 +124,8 @@
 - Добавлены манифесты для secret и перенастроен манифест Statefulset с их использованием
 
 ## Kubernetes-templating
+
+---
 
 - Resolve issue with deprecated repo
 
@@ -126,13 +136,13 @@
 
 ### Ingress-nginx
 
-```helm upgrade --install ingress-nginx stable/ingress-nginx --wait --namespace=ingress-nginx --version=3.17.0```
-
-### Chartmuseum
-
 - Create namespace & install ingress-nginx estead deprecated nginx-ingress
+```helm upgrade --install ingress-nginx stable/ingress-nginx --wait --namespace=ingress-nginx --version=3.17.0```
 - Check IP
 ```kubectl get service --namespace ingress-nginx```
+
+### Cert-manager
+
 - Create namespace & install certbot v1.0
 ```helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.1.0 --set installCRDs=true```
 - Check selfsign certs
@@ -140,6 +150,8 @@
 - Create clusterissuer
 ```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-production.yaml```
 ```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-stage.yaml```
+### Chartmuseum
+
 - Deploy chartmuseum
 ```helm upgrade --install chartmuseum stable/chartmuseum --wait --namespace=chartmuseum --version=2.13.2 -f kubernetes-templating/chartmuseum/values.yaml```
 - Check certs
@@ -159,7 +171,30 @@
 - For update
 ```helm repo update cm_repo```
 
+### Harbor
+
+- Установлен и корректно сконфигурированы значение values.yaml
+
+### Helmfile
+
+- Создан helmfile для ingress-nginx,cert-manager,harbor
+
+### HelmChart
+
+- Всего по немногу, уже 1:30 не до описания
+
 ### Kubecfg
 
-- Active Beta Function on GKE
-➜  python-speech git:(master) ✗ gcloud beta container clusters update cluster-1 --enable-vertical-pod-autoscaling
+- Всего по немногу, уже 1:30 не до описания
+
+### Kustomize
+
+- Всего по немногу, уже 1:30 не до описания
+
+### Конец, что это было
+
+![I finished](https://i.ytimg.com/vi/bVnY0dHKEpU/maxresdefault.jpg)
+
+## Next HW
+
+---
