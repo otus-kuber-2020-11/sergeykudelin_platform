@@ -37,6 +37,8 @@
 
 ## kubernetes-controllers
 
+---
+
 ### frontend-deployment
 
 - Добавил отсутствующий selector
@@ -53,6 +55,8 @@
 - Запуск на master node-ах можно сделать через tolerations + effect, согласно документации [link](https://kubernetes.io/docs/concepts/workloads/controllers/daemonset)
 
 ## kubernetes-security
+
+---
 
 ### Task01
 
@@ -91,9 +95,11 @@
     kubectl create serviceaccount ken --namespace dev --dry-run=client -o yaml > 06-serviceaccount-ken.yaml
     kubectl create rolebinding ken-viewer --namespace=dev --clusterrole=view --serviceaccount=dev:ken --dry-run=client -o yaml > 07-ken-rolebinding.yaml
 
-### Task04
+## kubernetes-network
 
-#### Базовые задачи
+---
+
+### Базовые задачи
 
 - Знакомство и создание service
 - Мониторинг iptables
@@ -101,16 +107,94 @@
 - Установка MetalLB
 - Создание минимального Ingress
 
-#### Задания со *
+### Задания со *
 
 - Проброс CoreDNS через MetalLB
 - Проброс Kubernetes Dashboard через Ingress
 - Канареечный деплой с помощью Ingress на базе HEADER
 
-### Task05 - Kubernetes Volumes
+## Kubernetes-volumes
+
+---
 
 - Созданы манифесты для использования minio
 
-#### Дополнительные задачи
+### Дополнительные задачи
 
 - Добавлены манифесты для secret и перенастроен манифест Statefulset с их использованием
+
+## Kubernetes-templating
+
+---
+
+- Resolve issue with deprecated repo
+
+```➜  helm repo add stable https://kubernetes-charts.storage.googleapis.com```
+```Error: repo "https://kubernetes-charts.storage.googleapis.com" is no longer available; try "https://charts.helm.sh/stable" instead```
+```➜ helm repo add stable https://charts.helm.sh/stable```
+```"stable" has been added to your repositories```
+
+### Ingress-nginx
+
+- Create namespace & install ingress-nginx estead deprecated nginx-ingress
+```helm upgrade --install ingress-nginx stable/ingress-nginx --wait --namespace=ingress-nginx --version=3.17.0```
+- Check IP
+```kubectl get service --namespace ingress-nginx```
+
+### Cert-manager
+
+- Create namespace & install certbot v1.0
+```helm install cert-manager jetstack/cert-manager --namespace cert-manager --version v1.1.0 --set installCRDs=true```
+- Check selfsign certs
+```kubectl apply -f kubernetes-templating/cert-manager/test-resources.yaml```
+- Create clusterissuer
+```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-production.yaml```
+```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-stage.yaml```
+### Chartmuseum
+
+- Deploy chartmuseum
+```helm upgrade --install chartmuseum stable/chartmuseum --wait --namespace=chartmuseum --version=2.13.2 -f kubernetes-templating/chartmuseum/values.yaml```
+- Check certs
+```kubectl get certificate --namespace chartmuseum```
+- Check web page
+
+### Chartmuseum wt star
+
+- Use plugin to push
+```helm plugin install https://github.com/chartmuseum/helm-push```
+- Add repo wt creds
+```helm repo add --username YOUR_USERNAME --password YOUR_PSWD cm_repo http://chartmuseum.146.148.97.58.nip.io```
+- For push
+```helm push YOUR_CHART cm_repo```
+- For search
+```helm search YOUR_CHART```
+- For update
+```helm repo update cm_repo```
+
+### Harbor
+
+- Установлен и корректно сконфигурированы значение values.yaml
+
+### Helmfile
+
+- Создан helmfile для ingress-nginx,cert-manager,harbor
+
+### HelmChart
+
+- Всего по немногу, уже 1:30 не до описания
+
+### Kubecfg
+
+- Всего по немногу, уже 1:30 не до описания
+
+### Kustomize
+
+- Всего по немногу, уже 1:30 не до описания
+
+### Конец, что это было
+
+![I finished](https://i.ytimg.com/vi/bVnY0dHKEpU/maxresdefault.jpg)
+
+## Next HW
+
+---
