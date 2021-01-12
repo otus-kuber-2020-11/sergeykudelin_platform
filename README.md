@@ -150,6 +150,7 @@
 - Create clusterissuer
 ```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-production.yaml```
 ```kubectl apply -f kubernetes-templating/cert-manager/letsencrypt-stage.yaml```
+
 ### Chartmuseum
 
 - Deploy chartmuseum
@@ -197,6 +198,49 @@
 
 ## Kubernetes Operators
 
-ssas
+### Создание CRD & CR for MySQL
+
+- Создание CRD & CR без валидации
+- Добавление шаблона валидации полей to CRD и проверка
+- Добавление проверки на обязательные поля to CRD и проверка
+```➜  deploy git:(kubernetes-operators) ✗ kubectl apply -f cr.yml```
+```The MySQL "mysql-instance" is invalid: spec.password: Required value```
+
+### Создание своего MySQL operator
+
+- Создание виртуального окружения для разработки
+- Установка зависимостей
+- Создание своего оператора mysql-operator.py
+- Первый чек работоспособности
+```pipenv run kopf run mysql-operator.py```
+Вывод:
+```[2021-01-13 00:47:55,834] kopf.objects         [INFO    ] [default/mysql-instance] Handler 'mysql_on_create' succeeded.```
+```[2021-01-13 00:47:55,834] kopf.objects         [INFO    ] [default/mysql-instance] Creation event is processed: 1 succeeded; 0 failed.```
+- Вопрос: Почему объект создался? Ответ: Так как контроллер не знал про него ничего, а точнее не имел подписку на него.
+- Второй чек работоспособности
+```pipenv run kopf run mysql-operator.py```
+
+### Проверка создание всех объектов
+
+- Создаем custom resource
+```kubectl apply -f deploy/cr.yml```
+- Проверка pvc:
+```kubectl get pvc```
+- Наполняем БД и чекаем ее восстановление после удаления и создания
+```+----+-------------+```
+```| id | name        |```
+```+----+-------------+```
+```|  1 | some data   |```
+```|  2 | some data-2 |```
+```+----+-------------+```
+- Сборка образа
+
+```docker build -t sergeykudelin/k8s-mysql-operator:0.0.1 .```
+
+```docker push sergeykudelin/k8s-mysql-operator:0.0.1```
+
+- Запуск оператора в kubernetes
+
+## Next HW
 
 ---

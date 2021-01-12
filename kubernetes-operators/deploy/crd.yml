@@ -18,20 +18,22 @@ spec:
   validation:
     openAPIV3Schema:
       type: object
+      required: ["spec"]
       properties:
         apiVersion:
-          type: string
+          type: string 
         kind:
-          type: string
+          type: string 
         metadata:
-          type: object
-          properties:
+          type: object 
+          properties: 
             name:
               type: string
         spec:
           type: object
+          required: ["image", "database", "password", "storage_size"]
           properties:
-            image: 
+            image:
               type: string
             database:
               type: string
@@ -39,7 +41,8 @@ spec:
               type: string
             storage_size:
               type: string
-          required:
-          - image
-          - database
-          - password
+        status:
+          type: object
+          properties:
+            message:
+              type: string
