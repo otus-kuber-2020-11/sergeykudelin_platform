@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+  namespace: default
+  labels:
+    app: web
+spec:
+  selector:
+    app: web
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8000
+    - name: nodeexporter
+      protocol: TCP
+      port: 9113

@@ -263,6 +263,31 @@
 
 ![I finished](https://memepedia.ru/wp-content/uploads/2017/03/tysonreaction.gif)
 
-## Next HW
+## Kubernetes Monitoring
 
+---
+
+### Prometheus Operator
+
+- Выбираем уровень сложности "Can i play, daddy?"
+
+![level](./kubernetes-monitoring/images/level.png)
+
+- Установка kube-prometheus-stack через helm3
+- Добавление ingress domain's в /etc/hosts
+```192.168.64.10 alertmanager.domain.com```
+```192.168.64.10 prometheus.domain.com```
+```192.168.64.10 grafana.domain.com```
+```192.168.64.10 web.domain.com```
+- Создание нового образа web с пробросом basic_status
+```docker push sergeykudelin/otus-k8s-web:wtstatus```
+- Создаем и применяем новый deployment & service & ingress & servicemonitor
+```for f in $(ls | grep web); do kubectl apply -f $f; done;```
+- Чекаем доступность всех сервисов через Ingress и проверяем наличие метрик
+- Prometheus
+![prometheus](./kubernetes-monitoring/images/level.png)
+- Grafana
+![grafana](./kubernetes-monitoring/images/level.png)
+
+Next HW
 ---
