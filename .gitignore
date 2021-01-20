@@ -1,3 +1,6 @@
 # Certs & Keys
 *.key
 *.crt
+
+# Python
+__pycache__
