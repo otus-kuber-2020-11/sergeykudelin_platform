@@ -194,7 +194,7 @@
 
 ### Конец, что это было
 
-![I finished](./kubernetes-templating/531060e40ad1b80c9c79595bfa6d44c8.jpg)
+![I finished](./kubernetes-templating/images/531060e40ad1b80c9c79595bfa6d44c8.jpg)
 
 ## Kubernetes Operators
 
@@ -261,7 +261,7 @@
 - Запуск оператора в kubernetes
 - Задачи со звездой, спасибо но нет.
 
-![I finished](https://memepedia.ru/wp-content/uploads/2017/03/tysonreaction.gif)
+![I finished](./images/tysonreaction.gif)
 
 ## Kubernetes Monitoring
 
