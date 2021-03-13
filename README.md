@@ -194,7 +194,7 @@
 
 ### Конец, что это было
 
-![I finished](https://i.ytimg.com/vi/bVnY0dHKEpU/maxresdefault.jpg)
+![I finished](./kubernetes-templating/531060e40ad1b80c9c79595bfa6d44c8.jpg)
 
 ## Kubernetes Operators
 
@@ -303,3 +303,26 @@
 
 Next HW
 ---
+# Preparing cluster
+
+## Create pools
+
+```
+➜  sergeykudelin_platform git:(kubernetes-logging) ✗ kubectl get nodesNAME                                                  STATUS   ROLES    AGE    VERSION
+gke-gke-observability-hw-default-pool-65570aa0-prvg   Ready    <none>   118s   v1.16.15-gke.7801
+gke-gke-observability-hw-infra-pool-7a14340e-6rz5     Ready    <none>   2m1s   v1.16.15-gke.7801
+gke-gke-observability-hw-infra-pool-7a14340e-r3x6     Ready    <none>   2m     v1.16.15-gke.7801
+gke-gke-observability-hw-infra-pool-7a14340e-s053     Ready    <none>   2m     v1.16.15-gke.7801
+```
+
+## Get elasticsearch on infra-pool
+
+```
+➜  kubernetes-logging git:(kubernetes-logging) ✗ kubectl get pods -n observability -o wide
+NAME                     READY   STATUS    RESTARTS   AGE     IP         NODE                                     NOMINATED NODE   READINESS GATES
+elasticsearch-master-0   0/1     Running   0          31s     10.4.3.2   gke-cluster-1-infra-pool-767d3a91-d6jr   <none>           <none>
+elasticsearch-master-1   0/1     Running   0          116s    10.4.4.2   gke-cluster-1-infra-pool-767d3a91-sbgj   <none>           <none>
+elasticsearch-master-2   0/1     Running   0          4m46s   10.4.5.2   gke-cluster-1-infra-pool-767d3a91-k60k   <none>           <none>
+➜  kubernetes-logging git:(kubernetes-logging) ✗ 
+```
+
