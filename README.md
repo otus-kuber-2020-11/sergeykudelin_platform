@@ -303,26 +303,45 @@
 
 Next HW
 ---
-# Preparing cluster
+# Kubernetes - Logging
 
-## Create pools
-
-```
-➜  sergeykudelin_platform git:(kubernetes-logging) ✗ kubectl get nodesNAME                                                  STATUS   ROLES    AGE    VERSION
-gke-gke-observability-hw-default-pool-65570aa0-prvg   Ready    <none>   118s   v1.16.15-gke.7801
-gke-gke-observability-hw-infra-pool-7a14340e-6rz5     Ready    <none>   2m1s   v1.16.15-gke.7801
-gke-gke-observability-hw-infra-pool-7a14340e-r3x6     Ready    <none>   2m     v1.16.15-gke.7801
-gke-gke-observability-hw-infra-pool-7a14340e-s053     Ready    <none>   2m     v1.16.15-gke.7801
-```
-
-## Get elasticsearch on infra-pool
+- Get nodes in ns observability
 
 ```
-➜  kubernetes-logging git:(kubernetes-logging) ✗ kubectl get pods -n observability -o wide
-NAME                     READY   STATUS    RESTARTS   AGE     IP         NODE                                     NOMINATED NODE   READINESS GATES
-elasticsearch-master-0   0/1     Running   0          31s     10.4.3.2   gke-cluster-1-infra-pool-767d3a91-d6jr   <none>           <none>
-elasticsearch-master-1   0/1     Running   0          116s    10.4.4.2   gke-cluster-1-infra-pool-767d3a91-sbgj   <none>           <none>
-elasticsearch-master-2   0/1     Running   0          4m46s   10.4.5.2   gke-cluster-1-infra-pool-767d3a91-k60k   <none>           <none>
-➜  kubernetes-logging git:(kubernetes-logging) ✗ 
+➜  sergeykudelin_platform git:(kubernetes-logging) ✗ kubectl get pods -n observability         
+NAME                                                     READY   STATUS    RESTARTS   AGE
+alertmanager-prom-stack-kube-prometheus-alertmanager-0   2/2     Running   0          92m
+elasticsearch-exporter-5b6cc9b94d-fp96r                  1/1     Running   0          126m
+elasticsearch-master-0                                   1/1     Running   0          15h
+elasticsearch-master-1                                   1/1     Running   0          15h
+elasticsearch-master-2                                   1/1     Running   0          15h
+fluent-bit-25pn5                                         1/1     Running   0          70m
+fluent-bit-gkc88                                         1/1     Running   0          70m
+fluent-bit-st4lh                                         1/1     Running   0          70m
+fluent-bit-x9shb                                         1/1     Running   0          70m
+k8s-event-logger-dd4647944-dvndv                         1/1     Running   0          13m
+kibana-kibana-687f987f84-m9lnv                           1/1     Running   0          15h
+loki-0                                                   1/1     Running   0          54m
+loki-promtail-dt6xn                                      1/1     Running   0          54m
+loki-promtail-hcvrz                                      1/1     Running   0          54m
+loki-promtail-p7g2t                                      1/1     Running   0          54m
+loki-promtail-vg7ft                                      1/1     Running   0          54m
+prom-stack-grafana-6b48d76d64-nhg4b                      2/2     Running   0          109m
+prom-stack-kube-prometheus-operator-5b8c688c7b-kd6zj     1/1     Running   0          92m
+prom-stack-kube-state-metrics-6b64fdd9d9-xvgx9           1/1     Running   0          109m
+prom-stack-prometheus-node-exporter-csgz2                1/1     Running   0          109m
+prom-stack-prometheus-node-exporter-dfhmk                1/1     Running   0          109m
+prom-stack-prometheus-node-exporter-gbk47                1/1     Running   0          109m
+prom-stack-prometheus-node-exporter-phfqk                1/1     Running   0          109m
+prometheus-prom-stack-kube-prometheus-prometheus-0       2/2     Running   1          92m
 ```
-
+- Created cluster with 2 pool
+- Deployed microservices-demo
+- Create namespace observability
+- Installed EFK
+    - ElasticSearch in infra-poll with ingress
+    - Kibana with ingress
+    ```http://kibana.35.192.50.47.xip.io```
+    - Fluent-bit
+- Task wt star - Didn't
+- 
