@@ -393,3 +393,106 @@ shippingservice-689c6457cd-8cbld         1/1     Running   0          18h
     ```
 ## Screenshots
 ```./kubernetes-logging/screenshots```
+
+---
+# Kubernetes - GitOps
+
+## Summary
+
+- Created GKE cluster
+- Created my own-repo - http://gitlab.com/sergeykudelin/microservices-demo
+- Built images of microservices-demo
+
+```
+export TAG=v0.0.4 && export REPO_PREFIX=sergeykudelin && bash ./hack/make-docker-images.sh
+```
+
+- Installed FluxCD
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) helm upgrade --install flux fluxcd/flux -f flux.values.yaml --namespace flux
+```
+
+- Installed Helm-Operator
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ helm upgrade --install helm-operator fluxcd/helm-operator -f helm-operator.values.yaml --namespace flux
+```
+
+- Fixed error with add CRDs of Prometheus
+```
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/release-0.43/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagerconfigs.yaml
+```
+
+- Install PromStack
+
+```
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -f kube-prometheus-stack/values.yaml
+```
+
+- Fix error https://github.com/prometheus-community/helm-charts/issues/579
+- Installed Flagger
+
+```
+helm repo add flagger https://flagger.app
+
+kubectl apply -f https://raw.githubusercontent.com/weaveworks/flagger/master/artifacts/flagger/crd.yaml
+
+helm upgrade --install flagger flagger/flagger \\
+--namespace=istio-system \\
+--set crd.create=false \\
+--set meshProvider=istio \\
+--set metricsServer=http://prometheus:9090
+```
+
+- Get canaries
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ kubectl get canaries -n microservices-demo
+
+NAME       STATUS   WEIGHT   LASTTRANSITIONTIME
+frontend   Failed   0        2021-04-08T19:26:57Z
+```
+
+- Fix canary with upgrade k8s + install istio via istioctl
+- Check
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ kubectl get canaries -n microservices-demo
+
+NAME  STATUS   WEIGHT   LASTTRANSITIONTIME
+frontend   Succeeded   0        2021-04-08T20:58:57Z
+```
+
+- Get description
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ kubectl  describe canary frontend -n microservices-demo
+
+Name: frontend 
+Namespace: microservices-demo 
+Labels: 
+Annotations: helm.fluxcd.io/antecedent: microservices-demo:helmrelease/frontend 
+API Version: flagger.app/v1beta1 
+Kind: Canary 
+Metadata: 
+Creation Timestamp: 2021-04-08T21:32:13Z 
+Generation: 1 
+Resource Version: 18778 
+Self Link: /apis/flagger.app/v1beta1/namespaces/microservices-demo/canaries/frontend 
+UID: 540f68a3-1783-3533-b311-34ab884fcd89 
+Spec: 
+Analysis: 
+Interval: 1m 
+Max Weight: 100 
+Metrics: 
+Interval: 1m 
+Name: request-success-rate 
+Threshold: 99 
+Step Weight: 50 
+
+... устал форматировать лог
+
+microservices-demo canary weight 100 Normal Synced 5m2s flagger Copying frontend.microservices-demo template spec to frontend-primary.microservices-demo Normal Synced 4m2s flagger Routing all traffic to primary Normal Synced 3m2s flagger Promotion completed! 
+Scaling down frontend.microservices-demo
+```
