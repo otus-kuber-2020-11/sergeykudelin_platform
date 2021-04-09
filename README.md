@@ -301,9 +301,11 @@
 
 ![grafana](./kubernetes-monitoring/images/grafana.png)
 
-Next HW
+
 ---
 # Kubernetes - Logging
+
+## Summary
 
 - Get nodes in ns observability
 
@@ -335,13 +337,162 @@ prom-stack-prometheus-node-exporter-gbk47                1/1     Running   0    
 prom-stack-prometheus-node-exporter-phfqk                1/1     Running   0          109m
 prometheus-prom-stack-kube-prometheus-prometheus-0       2/2     Running   1          92m
 ```
+## Step by step
+
 - Created cluster with 2 pool
+```
+➜  sergeykudelin_platform git:(kubernetes-logging) ✗ kubectl get nodes
+NAME                                                  STATUS   ROLES    AGE   VERSION
+gke-gke-observability-hw-default-pool-65570aa0-prvg   Ready    <none>   18h   v1.16.15-gke.7801
+gke-gke-observability-hw-infra-pool-7a14340e-6rz5     Ready    <none>   18h   v1.16.15-gke.7801
+gke-gke-observability-hw-infra-pool-7a14340e-r3x6     Ready    <none>   18h   v1.16.15-gke.7801
+gke-gke-observability-hw-infra-pool-7a14340e-s053     Ready    <none>   18h   v1.16.15-gke.7801
+```
 - Deployed microservices-demo
-- Create namespace observability
+```
+➜  sergeykudelin_platform git:(kubernetes-logging) ✗ kubectl get pods -n microservices-demo
+NAME                                     READY   STATUS    RESTARTS   AGE
+adservice-cb695c556-mfh7k                1/1     Running   0          18h
+cartservice-f4677b75f-b9w9b              1/1     Running   2          18h
+checkoutservice-664f865b9b-ffp7r         1/1     Running   0          18h
+currencyservice-bb9d998bd-bfbtq          1/1     Running   0          18h
+emailservice-6756967b6d-jqgjz            1/1     Running   0          18h
+frontend-766587959d-ghh6l                1/1     Running   0          18h
+loadgenerator-9f854cfc5-m9qkh            1/1     Running   4          18h
+paymentservice-57c87dc78b-8dvbb          1/1     Running   0          18h
+productcatalogservice-9f5d68b54-szw4b    1/1     Running   0          18h
+recommendationservice-57c49756fd-jfm59   1/1     Running   0          18h
+redis-cart-5f75fbd9c7-482xq              1/1     Running   0          18h
+shippingservice-689c6457cd-8cbld         1/1     Running   0          18h
+```
+- Created namespace observability
 - Installed EFK
     - ElasticSearch in infra-poll with ingress
     - Kibana with ingress
     ```http://kibana.35.192.50.47.xip.io```
     - Fluent-bit
-- Task wt star - Didn't
-- 
+- Task #1 wt star - Didn't
+- Prometheus Stack for EFK
+- Check alert for elasticsearch over drain-mode
+- Changed format logs for ingress-nginx
+- Create dashboard for ingress
+```./kubernetes-loggins/export.ndjson```
+- Deployed Loki
+- Move promtail for infra-pool
+- Install k8s-event-logger
+```helm install -n observability k8s-event-logger ./kubernetes-logging/k8s-event-logger/chart```
+- Task #2 wt star - Didn't
+- Task #3 wt star
+    ```
+    systemd:
+      enabled: true
+      maxEntries: 1000
+      readFromTail: true
+      stripUnderscores: false
+      tag: host.*
+    ```
+## Screenshots
+```./kubernetes-logging/screenshots```
+
+---
+# Kubernetes - GitOps
+
+## Summary
+
+- Created GKE cluster
+- Created my own-repo - http://gitlab.com/sergeykudelin/microservices-demo
+- Built images of microservices-demo
+
+```
+export TAG=v0.0.4 && export REPO_PREFIX=sergeykudelin && bash ./hack/make-docker-images.sh
+```
+
+- Installed FluxCD
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) helm upgrade --install flux fluxcd/flux -f flux.values.yaml --namespace flux
+```
+
+- Installed Helm-Operator
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ helm upgrade --install helm-operator fluxcd/helm-operator -f helm-operator.values.yaml --namespace flux
+```
+
+- Fixed error with add CRDs of Prometheus
+```
+kubectl apply -f https://raw.githubusercontent.com/prometheus-operator/prometheus-operator/release-0.43/example/prometheus-operator-crd/monitoring.coreos.com_alertmanagerconfigs.yaml
+```
+
+- Install PromStack
+
+```
+helm upgrade --install prometheus prometheus-community/kube-prometheus-stack -f kube-prometheus-stack/values.yaml
+```
+
+- Fix error https://github.com/prometheus-community/helm-charts/issues/579
+- Installed Flagger
+
+```
+helm repo add flagger https://flagger.app
+
+kubectl apply -f https://raw.githubusercontent.com/weaveworks/flagger/master/artifacts/flagger/crd.yaml
+
+helm upgrade --install flagger flagger/flagger \\
+--namespace=istio-system \\
+--set crd.create=false \\
+--set meshProvider=istio \\
+--set metricsServer=http://prometheus:9090
+```
+
+- Get canaries
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ kubectl get canaries -n microservices-demo
+
+NAME       STATUS   WEIGHT   LASTTRANSITIONTIME
+frontend   Failed   0        2021-04-08T19:26:57Z
+```
+
+- Fix canary with upgrade k8s + install istio via istioctl
+- Check
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ kubectl get canaries -n microservices-demo
+
+NAME  STATUS   WEIGHT   LASTTRANSITIONTIME
+frontend   Succeeded   0        2021-04-08T20:58:57Z
+```
+
+- Get description
+
+```
+➜  kubernetes-gitops git:(kubernetes-gitops) ✗ kubectl  describe canary frontend -n microservices-demo
+
+Name: frontend 
+Namespace: microservices-demo 
+Labels: 
+Annotations: helm.fluxcd.io/antecedent: microservices-demo:helmrelease/frontend 
+API Version: flagger.app/v1beta1 
+Kind: Canary 
+Metadata: 
+Creation Timestamp: 2021-04-08T21:32:13Z 
+Generation: 1 
+Resource Version: 18778 
+Self Link: /apis/flagger.app/v1beta1/namespaces/microservices-demo/canaries/frontend 
+UID: 540f68a3-1783-3533-b311-34ab884fcd89 
+Spec: 
+Analysis: 
+Interval: 1m 
+Max Weight: 100 
+Metrics: 
+Interval: 1m 
+Name: request-success-rate 
+Threshold: 99 
+Step Weight: 50 
+
+... устал форматировать лог
+
+microservices-demo canary weight 100 Normal Synced 5m2s flagger Copying frontend.microservices-demo template spec to frontend-primary.microservices-demo Normal Synced 4m2s flagger Routing all traffic to primary Normal Synced 3m2s flagger Promotion completed! 
+Scaling down frontend.microservices-demo
+```
