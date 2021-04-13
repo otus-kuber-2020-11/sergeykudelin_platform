@@ -780,6 +780,7 @@ Success! Data written to: auth/kubernetes/role/otus
 ➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl create configmap example-vault-agent-config --from-file=./configs-k8s/
 ➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl get configmap example-vault-agent-config -o yaml
 ➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl apply -f example-k8s-spec.yml --record
+```
 - Get index.html
 ```
 ➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-agent-example -- cat /usr/share/nginx/html/index.html
@@ -794,3 +795,26 @@ Success! Data written to: auth/kubernetes/role/otus
 </body>
 </html>
 ```
+- Create CA's via Vault
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault secrets tune -max-lease-ttl=87600h pki
+Success! Tuned the secrets engine at: pki/
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write -field=certificate pki/root/generate/internal common_name="exmaple.ru"  ttl=87600h > CA_cert.crt
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write pki/config/urls  \
+issuing_certificates="http://vault:8200/v1/pki/ca"       \
+crl_distribution_points="http://vault:8200/v1/pki/crl"
+Success! Data written to: pki/config/urls
+```
+- Create intermidiate certs
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault secrets enable --path=pki_int pki
+Success! Enabled the pki secrets engine at: pki_int/
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault secrets tune -max-lease-ttl=87600h pki_int
+Success! Tuned the secrets engine at: pki_int/
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write -format=json pki_int/intermediate/generate/internal common_name="example.ru Intermediate Authority" | jq -r '.data.csr' > pki_intermediate.csr 
+```
+- 
