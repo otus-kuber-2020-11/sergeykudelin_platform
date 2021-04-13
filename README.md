@@ -496,3 +496,301 @@ Step Weight: 50
 microservices-demo canary weight 100 Normal Synced 5m2s flagger Copying frontend.microservices-demo template spec to frontend-primary.microservices-demo Normal Synced 4m2s flagger Routing all traffic to primary Normal Synced 3m2s flagger Promotion completed! 
 Scaling down frontend.microservices-demo
 ```
+
+---
+# Kubernetes - Vault
+
+## Base tasks
+
+- Add repo with consul
+```
+helm repo add hashicorp https://helm.releases.hashicorp.com
+```
+- Update registry with new repo
+```
+helm repo update
+```
+- Install consul with default variables
+```
+helm install consul hashicorp/consul --set global.name=consul
+```
+- Install vault with values.yml
+```
+helm install -f kubernetes-vault/values.yaml vault hashicorp/vault
+```
+- Result of helm status vault
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ helm status vault
+NAME: vault
+LAST DEPLOYED: Tue Apr 13 20:24:39 2021
+NAMESPACE: default
+STATUS: deployed
+REVISION: 1
+TEST SUITE: None
+NOTES:
+Thank you for installing HashiCorp Vault!
+
+Now that you have deployed Vault, you should look over the docs on using
+Vault with Kubernetes available here:
+
+https://www.vaultproject.io/docs/
+
+
+Your release is named vault. To learn more about the release, try:
+
+  $ helm status vault
+  $ helm get manifest vault
+```
+- Init vault with One Unseal Key
+```
+kubectl exec -it vault-0 -- vault operator init --key-shares=1 --key-threshold=1
+```
+- Save output
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault operator init --key-shares=1 --key-threshold=1
+
+Unseal Key 1: HXWqX2/bxQHNlVW2vUQztSt3fPU8UxKPEh01tB9iudQ=
+
+Initial Root Token: s.Il6QUUTbZm39hDoqKr88YpqF
+
+Vault initialized with 1 key shares and a key threshold of 1. Please securely
+distribute the key shares printed above. When the Vault is re-sealed,
+restarted, or stopped, you must supply at least 1 of these keys to unseal it
+before it can start servicing requests.
+
+Vault does not store the generated master key. Without at least 1 key to
+reconstruct the master key, Vault will remain permanently sealed!
+
+It is possible to generate new unseal keys, provided you have a quorum of
+existing unseal keys shares. See "vault operator rekey" for more information.
+```
+- Check status Vault
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault status
+Key                Value
+---                -----
+Seal Type          shamir
+Initialized        true
+Sealed             true
+Total Shares       1
+Threshold          1
+Unseal Progress    0/1
+Unseal Nonce       n/a
+Version            1.7.0
+Storage Type       consul
+HA Enabled         true
+command terminated with exit code 2
+```
+- Unseal all pods
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault operator unseal 'HXWqX2/bxQHNlVW2vUQztSt3fPU8UxKPEh01tB9iudQ='
+Key                    Value
+---                    -----
+Seal Type              shamir
+Initialized            true
+Sealed                 false
+Total Shares           1
+Threshold              1
+Version                1.7.0
+Storage Type           consul
+Cluster Name           vault-cluster-1967c9f7
+Cluster ID             5f543be2-c6a9-beb6-6678-83fe9364fc73
+HA Enabled             true
+HA Cluster             n/a
+HA Mode                standby
+Active Node Address    <none>
+
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-1 -- vault operator unseal 'HXWqX2/bxQHNlVW2vUQztSt3fPU8UxKPEh01tB9iudQ='
+Key                    Value
+---                    -----
+Seal Type              shamir
+Initialized            true
+Sealed                 false
+Total Shares           1
+Threshold              1
+Version                1.7.0
+Storage Type           consul
+Cluster Name           vault-cluster-1967c9f7
+Cluster ID             5f543be2-c6a9-beb6-6678-83fe9364fc73
+HA Enabled             true
+HA Cluster             https://vault-0.vault-internal:8201
+HA Mode                standby
+Active Node Address    http://10.108.2.7:8200
+
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-2 -- vault operator unseal 'HXWqX2/bxQHNlVW2vUQztSt3fPU8UxKPEh01tB9iudQ='
+Key                    Value
+---                    -----
+Seal Type              shamir
+Initialized            true
+Sealed                 false
+Total Shares           1
+Threshold              1
+Version                1.7.0
+Storage Type           consul
+Cluster Name           vault-cluster-1967c9f7
+Cluster ID             5f543be2-c6a9-beb6-6678-83fe9364fc73
+HA Enabled             true
+HA Cluster             https://vault-0.vault-internal:8201
+HA Mode                standby
+Active Node Address    http://10.108.2.7:8200
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗
+```
+- LogIn to Vault
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 --  vault login
+Token (will be hidden): 
+Success! You are now authenticated. The token information displayed below
+is already stored in the token helper. You do NOT need to run "vault login"
+again. Future Vault requests will automatically use this token.
+
+Key                  Value
+---                  -----
+token                s.Il6QUUTbZm39hDoqKr88YpqF
+token_accessor       iLJh0yFYKJE0M93qSZRupjnn
+token_duration       ∞
+token_renewable      false
+token_policies       ["root"]
+identity_policies    []
+policies             ["root"]
+```
+- Save list of auth
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault auth list                                                     
+Path      Type     Accessor               Description
+----      ----     --------               -----------
+token/    token    auth_token_d3448f05    token based credentials
+```
+- Get secret
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault read otus/otus-ro/config
+Key                 Value
+---                 -----
+refresh_interval    768h
+password            asajkjkahs
+username            otus
+
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault kv get otus/otus-rw/config
+====== Data ======
+Key         Value
+---         -----
+password    asajkjkahs
+username    otus
+```
+- Add k8s auth to Vault
+```
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault auth enable kubernetes
+Success! Enabled kubernetes auth method at: kubernetes/
+
+➜  sergeykudelin_platform git:(kubernetes-vault) ✗ kubectl exec -it vault-0 --  vault auth list
+Path           Type          Accessor                    Description
+----           ----          --------                    -----------
+kubernetes/    kubernetes    auth_kubernetes_4d19858d    n/a
+token/         token         auth_token_d3448f05         token based credentials
+```
+- Create ClusterRoleBing & ServiceAccount
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl create serviceaccount vault-auth
+
+serviceaccount/vault-auth created
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl apply --filename vault-auth-service-account.yml
+clusterrolebinding.rbac.authorization.k8s.io/
+
+role-tokenreview-binding created
+```
+- Create variables and check
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ printenv | grep 'VAULT_SA_NAME\|SA_JWT_TOKEN\|SA_CA_CRT\|K8S_HOST'                                         
+
+VAULT_SA_NAME=vault-auth-token-lw2zn
+SA_JWT_TOKEN=eyJhbGciOiJSUzI1NiIsImtpZCI6IkRhMUFsNEVWc3B5NmhFQUhrbk51MndrSjR1azFSMmc3U0VueGkwOTQwWFkifQ.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6InZhdWx0LWF1dGgtdG9rZW4tbHcyem4iLCJrdWJlcm5ldGVzLmlvL3NlcnZpY2VhY2NvdW50L3NlcnZpY2UtYWNjb3VudC5uYW1lIjoidmF1bHQtYXV0aCIsImt1YmVybmV0ZXMuaW8vc2VydmljZWFjY291bnQvc2VydmljZS1hY2NvdW50LnVpZCI6IjRkNzNkMTZkLTY2MzMtNDg5Zi1hYjUxLWFjZDBiZTdhMDdhYSIsInN1YiI6InN5c3RlbTpzZXJ2aWNlYWNjb3VudDpkZWZhdWx0OnZhdWx0LWF1dGgifQ.diTCAwx9sp6ebhpIpc6csvUIVww7F4KLZ2ElAR42s1WawdP8NIG1bHcXpJTec-EvFXwj3gIVAHo36wGQ6utvAhuiiaZqEVkOTj3XGgJSLckRY6rzjIA03tAm6rsqdPLLhwFjZfXVbRcBMBLHrQP5jWvzVKDp8d-0TtHWZSVWS1B5TByHOfIOdPjmYpSLMSGrNYCDFuRTjLZyVTGOcTUAObyIAc74Z7AfI-aV51yJHKX3ev20jhapch2Qt6PkYiaZQucuAcn1ba8yUBjDJPPKDGKKr0D6ELWp1Z6AyMDtQzHeNCJBf_9okJCpu-rYK9kwBlDOzx_izrnXA0H977xwyw
+SA_CA_CRT=-----BEGIN CERTIFICATE-----
+K8S_HOST=https://35.188.198.154
+```
+- For removing ASCI color codes using
+```
+sed 's/\x1b\[[0-9;]*m//g'
+```
+-  Add config to Vault
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write auth/kubernetes/config \
+token_reviewer_jwt="$SA_JWT_TOKEN" \
+kubernetes_host="$K8S_HOST" \
+kubernetes_ca_cert="$SA_CA_CRT"
+
+Success! Data written to: auth/kubernetes/config
+➜  kubernetes-vault git:(kubernetes-vault) ✗ 
+```
+- Copy policy
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl cp otus-policy.hcl vault-0:/tmp/
+```
+- Apply Policy
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault policy write otus-policy /tmp/otus-policy.hcl
+
+Success! Uploaded policy: otus-policy
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write auth/kubernetes/role/otus bound_service_account_names=vault-auth bound_service_account_namespaces=default policies=otus-policy  ttl=24h             
+
+Success! Data written to: auth/kubernetes/role/otus
+```
+- Create pod and setup curl & jq and get client token
+```
+/ # curl --request POST  --data '{"jwt": "'$KUBE_TOKEN'", "role": "otus"}' $VAULT_ADDR/v1/auth/kubernetes/login | jq
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100  1605  100   666  1{0     0      0      0 --:--:-- --:--:-- --:--:--     0
+0     "request_id": "56508cab-cd11-2958-d2ae-e8087913b24b",
+93  "lease_id": "",
+9   "renewable": false,
+ 12  "lease_duration": 0,
+80  "data": null,
+7   "wrap_info": null,
+ 1  "warnings": null,
+80  "auth": {
+57     "client_token": "s.fIaOTw1LQQy1vendJcVh2V8b",
+--:    "accessor": "HfOOjqjInvvk8Q3qzdPvthxf",
+```
+- Check read
+```
+/ # curl --header "X-Vault-Token:s.fIaOTw1LQQy1vendJcVh2V8b" $VAULT_ADDR/v1/otus/otus-ro/config
+
+{"request_id":"51c662a1-eb75-24e3-deb1-57c78a1b8561","lease_id":"","renewable":false,"lease_duration":2764800,"data":{"password":"asajkjkahs","username":"otus"},"wrap_info":null,"warnings":null,"auth":null}
+
+/ # curl --header "X-Vault-Token:s.fIaOTw1LQQy1vendJcVh2V8b" $VAULT_ADDR/v1/otus/otus-rw/config
+
+{"request_id":"b29f6b1a-7dac-4613-cbf8-6c340a96b5e9","lease_id":"","renewable":false,"lease_duration":2764800,"data":{"password":"asajkjkahs","username":"otus"},"wrap_info":null,"warnings":null,"auth":null}
+```
+- Check write permission and fix rights in Policy with update for present kv
+```
+/ # curl --request POST --data '{"bar": "baz"}'   --header "X-Vault-Token:s.fIaOTw1LQQy1vendJcVh2V8b" $VAULT_ADDR/v1/otus/otus-ro/config
+{"errors":["1 error occurred:\n\t* permission denied\n\n"]}
+/ # "errors":["1 error occurred:\n\t* permission denied\n\n"]}
+
+/ # curl --request POST --data '{"bar": "baz"}'   --header "X-Vault-Token:s.fIaOTw1LQQy1vendJcVh2V8b" $VAULT_ADDR/v1/otus/otus-rw/config
+
+/ # curl --request POST --data '{"bar": "baz"}'   --header "X-Vault-Token:s.fIaOTw1LQQy1vendJcVh2V8b" $VAULT_ADDR/v1/otus/otus-rw/config1
+```
+- Copy vault-agent-config
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ cp ../vault-guides/identity/vault-agent-k8s-demo/configmap.yaml ./
+➜  kubernetes-vault git:(kubernetes-vault) ✗ cp ../vault-guides/identity/vault-agent-k8s-demo/example-k8s-spec.yaml ./
+➜  kubernetes-vault git:(kubernetes-vault) ✗ mkdir configs-k8s && mv configmap.yaml ./configs-k8s/
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl create configmap example-vault-agent-config --from-file=./configs-k8s/
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl get configmap example-vault-agent-config -o yaml
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl apply -f example-k8s-spec.yml --record
+- Get index.html
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-agent-example -- cat /usr/share/nginx/html/index.html
+<html>
+<body>
+<p>Some secrets:</p>
+<ul>
+<li><pre>username: otus</pre></li>
+<li><pre>password: asajkjkahs</pre></li>
+</ul>
+
+</body>
+</html>
+```
