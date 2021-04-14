@@ -817,4 +817,127 @@ Success! Tuned the secrets engine at: pki_int/
 
 ➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write -format=json pki_int/intermediate/generate/internal common_name="example.ru Intermediate Authority" | jq -r '.data.csr' > pki_intermediate.csr 
 ```
-- 
+- Add intermidiate cert to Vault
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl cp pki_intermediate.csr vault-0:/tmp
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write -format=json pki/root/sign-intermediate csr=@/tmp/pki_intermediate.csr format=pem_bundle ttl="43800h" |  jq -r '.data.certificate' > intermediate.cert.pem
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl cp intermediate.cert.pem vault-0:/tmp
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write pki_int/intermediate/set-signed certificate=@/tmp/intermediate.cert.pem
+
+Success! Data written to: pki_int/intermediate/set-signed
+```
+- Create role and first cert
+```
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write pki_int/roles/example-dot-ru allowed_domains="example.ru" allow_subdomains=true   max_ttl="720h"                                                 
+Success! Data written to: pki_int/roles/example-dot-ru
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write pki_int/issue/example-dot-ru common_name="dev.example.ru" ttl="24h"
+
+Key                 Value
+---                 -----
+ca_chain            [-----BEGIN CERTIFICATE-----
+MIIDnDCCAoSgAwIBAgIUKasF8qh//aop41yQXExTjaNbwmIwDQYJKoZIhvcNAQEL
+BQAwFTETMBEGA1UEAxMKZXhtYXBsZS5ydTAeFw0yMTA0MTMyMTIxNTlaFw0yNjA0
+MTIyMTIyMjlaMCwxKjAoBgNVBAMTIWV4YW1wbGUucnUgSW50ZXJtZWRpYXRlIEF1
+dGhvcml0eTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAK7POUAQCZyC
+VzW08Z7vlgdri8LHRExfeCwiLW0iEGoJmAgEOR6WtYtTgTCAIfAajhjEKb8201UJ
+grx7eY+LJkNGVcfAjx4AxPKYZNXbt6NdfbCeB2lV+aZsqHvAqSrnJI+SoFXGGlXU
+pqe0E73mIwWc6pwn/LcXaFLqFvBmOPifWQTk9cYbLyd0XN7svDSpyk0D7kC/cYAz
+gcV0uaUuFlTgQrBFVrJSxJHaWt7JnVYaFGm32xZWWqRN8o1Hh1TIn82fsvE0QuaG
+Y/317iWy+lWaQJ+Hy6IQPO99eXYa/x5CqAPqzH3dUS7ZZkhJP/zlN3nbFXScyiG2
+lsEKkngPg78CAwEAAaOBzDCByTAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUw
+AwEB/zAdBgNVHQ4EFgQUrnVXw9xmfQ0YANbhv480X/WdXekwHwYDVR0jBBgwFoAU
+5SkChjraY0rpE5IvvNttRHrLDREwNwYIKwYBBQUHAQEEKzApMCcGCCsGAQUFBzAC
+hhtodHRwOi8vdmF1bHQ6ODIwMC92MS9wa2kvY2EwLQYDVR0fBCYwJDAioCCgHoYc
+aHR0cDovL3ZhdWx0OjgyMDAvdjEvcGtpL2NybDANBgkqhkiG9w0BAQsFAAOCAQEA
+egk4YqY3uMBXqQRqVlSFp6EoPr/+c8zFzJAJ2q1ci50YU8MauikVX1AN4U+gXOZW
+Mi/YuGhyGkcxkXxosCzhahfuqrV7Y4rSxVededmp1v9Vd9lnRLJlMP4aabO8jm2x
+k1OfXaS1BDiSyavbX0flpWK4SWzxM65uYciu+TPBBAUrc2RZfxbAMzu1cvy+i6gd
+NdWkTlRXYh7JHpyl9TEg/HaLQWzl/Ayi88GSWizSbBV/mvrJPFq6a3v36YD2BfUM
+WzVkRJVuTLSSKYecQCJrhJj2mLMrW+b9C6SfEp3Afjkc03ssoMwg2jxxtO9Ig3ag
+bi6yfg0VbpjMCCHTpX8wag==
+-----END CERTIFICATE-----]
+certificate         -----BEGIN CERTIFICATE-----
+MIIDYTCCAkmgAwIBAgIULL8313PXK6XmUUP84QFPye9F4KYwDQYJKoZIhvcNAQEL
+BQAwLDEqMCgGA1UEAxMhZXhhbXBsZS5ydSBJbnRlcm1lZGlhdGUgQXV0aG9yaXR5
+MB4XDTIxMDQxMzIxMjU0MloXDTIxMDQxNDIxMjYxMlowGTEXMBUGA1UEAxMOZGV2
+LmV4YW1wbGUucnUwggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQCb9W/h
+v99rSE8eDRy45S/PCS+V6AY7kgWGfsqdtst4I59EImTBXiOHoRqGWUV1z+2NavtQ
+1fBMQoFLiZzEtJFzG118bOM+bw6jKRWmcnGq92kXYYhq5+gudAzGn4xBW8meeJbU
+yYs993802MJP9rqeYPKSRT/RsSRBACnHJCIBDuRI7lEAY5EafR+6lS4w4tlBeRTO
+RYjZNL3+dpbhVMpUp8i+BEmTJ5+0N/JsUSdsLfCTXdD1MlaVzlg3AYpgiDHDHNdF
+LOHfebCjwG+87Y1k9/7uBuD3cSIyod/NidEYJ6XY9AWdYQIQWlwFz+nBdUzjCozw
+hFAGirmxcUsApDEPAgMBAAGjgY0wgYowDgYDVR0PAQH/BAQDAgOoMB0GA1UdJQQW
+MBQGCCsGAQUFBwMBBggrBgEFBQcDAjAdBgNVHQ4EFgQU+3qRAIpdNo47sFjhjX0b
+00C63+AwHwYDVR0jBBgwFoAUrnVXw9xmfQ0YANbhv480X/WdXekwGQYDVR0RBBIw
+EIIOZGV2LmV4YW1wbGUucnUwDQYJKoZIhvcNAQELBQADggEBAEK6QNYgLHsye48M
+xPk2svtmXJ2IE43qgQ7mf+ke6RerqpdfJAPpGvMXj4yV0gQpq/jrxci5qewx+CwJ
+RKCxGx5iT7jW5+9HIcr8HGmL0fxsKBnX2u/Hg/CsHTNmhOkILBdYreh380TOzsWQ
+GMC0Lu6PFUx6Rv8kkZSp+L6XvTQO9asyjLqKJDs2OwJiXsnpAG0m8yqQq9bBj7pu
+w/tz0q069vvO7KQ0g/6ABDoml7j1RX8MnzJcoCbg/LHOIFP0sc+0FX2jehSsOe/L
+vJoZCHtvGk262dw36qlDXUEtPljpv4ooH1zGqm4vCSiYq0NKSVcR+288OK/JL7Sh
+GH2x/hI=
+-----END CERTIFICATE-----
+expiration          1618435572
+issuing_ca          -----BEGIN CERTIFICATE-----
+MIIDnDCCAoSgAwIBAgIUKasF8qh//aop41yQXExTjaNbwmIwDQYJKoZIhvcNAQEL
+BQAwFTETMBEGA1UEAxMKZXhtYXBsZS5ydTAeFw0yMTA0MTMyMTIxNTlaFw0yNjA0
+MTIyMTIyMjlaMCwxKjAoBgNVBAMTIWV4YW1wbGUucnUgSW50ZXJtZWRpYXRlIEF1
+dGhvcml0eTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAK7POUAQCZyC
+VzW08Z7vlgdri8LHRExfeCwiLW0iEGoJmAgEOR6WtYtTgTCAIfAajhjEKb8201UJ
+grx7eY+LJkNGVcfAjx4AxPKYZNXbt6NdfbCeB2lV+aZsqHvAqSrnJI+SoFXGGlXU
+pqe0E73mIwWc6pwn/LcXaFLqFvBmOPifWQTk9cYbLyd0XN7svDSpyk0D7kC/cYAz
+gcV0uaUuFlTgQrBFVrJSxJHaWt7JnVYaFGm32xZWWqRN8o1Hh1TIn82fsvE0QuaG
+Y/317iWy+lWaQJ+Hy6IQPO99eXYa/x5CqAPqzH3dUS7ZZkhJP/zlN3nbFXScyiG2
+lsEKkngPg78CAwEAAaOBzDCByTAOBgNVHQ8BAf8EBAMCAQYwDwYDVR0TAQH/BAUw
+AwEB/zAdBgNVHQ4EFgQUrnVXw9xmfQ0YANbhv480X/WdXekwHwYDVR0jBBgwFoAU
+5SkChjraY0rpE5IvvNttRHrLDREwNwYIKwYBBQUHAQEEKzApMCcGCCsGAQUFBzAC
+hhtodHRwOi8vdmF1bHQ6ODIwMC92MS9wa2kvY2EwLQYDVR0fBCYwJDAioCCgHoYc
+aHR0cDovL3ZhdWx0OjgyMDAvdjEvcGtpL2NybDANBgkqhkiG9w0BAQsFAAOCAQEA
+egk4YqY3uMBXqQRqVlSFp6EoPr/+c8zFzJAJ2q1ci50YU8MauikVX1AN4U+gXOZW
+Mi/YuGhyGkcxkXxosCzhahfuqrV7Y4rSxVededmp1v9Vd9lnRLJlMP4aabO8jm2x
+k1OfXaS1BDiSyavbX0flpWK4SWzxM65uYciu+TPBBAUrc2RZfxbAMzu1cvy+i6gd
+NdWkTlRXYh7JHpyl9TEg/HaLQWzl/Ayi88GSWizSbBV/mvrJPFq6a3v36YD2BfUM
+WzVkRJVuTLSSKYecQCJrhJj2mLMrW+b9C6SfEp3Afjkc03ssoMwg2jxxtO9Ig3ag
+bi6yfg0VbpjMCCHTpX8wag==
+-----END CERTIFICATE-----
+private_key         -----BEGIN RSA PRIVATE KEY-----
+MIIEpQIBAAKCAQEAm/Vv4b/fa0hPHg0cuOUvzwkvlegGO5IFhn7KnbbLeCOfRCJk
+wV4jh6EahllFdc/tjWr7UNXwTEKBS4mcxLSRcxtdfGzjPm8OoykVpnJxqvdpF2GI
+aufoLnQMxp+MQVvJnniW1MmLPfd/NNjCT/a6nmDykkU/0bEkQQApxyQiAQ7kSO5R
+AGORGn0fupUuMOLZQXkUzkWI2TS9/naW4VTKVKfIvgRJkyeftDfybFEnbC3wk13Q
+9TJWlc5YNwGKYIgxwxzXRSzh33mwo8BvvO2NZPf+7gbg93EiMqHfzYnRGCel2PQF
+nWECEFpcBc/pwXVM4wqM8IRQBoq5sXFLAKQxDwIDAQABAoIBAQCE9XmsvCd9Duhk
+dklGWB2qI+qtomGt549OWkniqzRL+BKPw8KiF9+ygWZboz/UcK/VIJ+hCsMSQKB6
+BZfhGw/lUi8hJLOXRpb0AtKyVF8Tolm11TC3832+HLHHo72u+tGoiKYOQsSyz41j
+QGhoQ7BV1dD3YpJF8v81ay4y2FslCngq7MN5dVezkRkqmSqEfmLqZrfh5LRgJfFP
+KTdZ2OYDRlaWnJ46pIZdj8rSa/5R4AOE/vfZieHzp/1NcrLmZJUSQxLY6agxIrgO
+lB1cgp1f9xImyi4uMiJh0y2QGi7ScpTrmKfIQwU4XrnL5P8HjIsPZpLjsHxi1051
+yhI5/QwBAoGBAMDUqXB8vbx6O/mZDVw3xuzY4CGBQn9/TIdCoZ6wWCdXy5eqbE2T
+4yZP5zrogsvI4JwqleRZ+Ej9QFZlsPSJMyQBk+EzbLpF9A3Qt6o3EuC7olBdDVbO
+as1fqdhLN2vHQ0nSXE1zObVmmYjsAP+L5ljKbwkpeLMitt7+BJmO9jdXAoGBAM8M
+leRxyv5fQtmdV1as+NjeJKtqyqHQjKR0vvJP/vu1/FRtF01paInNx+GVvGS89+X7
+GN+XaBzbEzUu7qQYUwWWUV5VzHc9GdPc8t7P5dh9QTf1uFgNBMoHgchM6pfXoVHq
+0bFE74WStzYFbvmMAv3wNLkZuVuzpUvVCPRI2VkJAoGBAL7GJtRZNUXxEMEBwQwJ
+Ss8sSaIcRfPpt4biTw+2m6Bg5dWpD/k4ZLSUvMm1GyIOHNmj8CO5N0DO/QX9GbL0
+whnPTcSxodIwPyIj6nGGhzC7sfwb84R8N4H0MQ8Ca1RAEbxJWHRvmRp05VVnWB17
+BWu2619/HiDsKUw4t8hMfh+FAoGBAJvC9RTKApOA6NK7ipP7Rq4n2GBY054OPXAP
+IAM86S9FxlFhTHGBRhK9i4yK0BLdEoWidCDpT3q92OJer0slvXdrkUUtuMdPYRnA
+k7nJnzlRaXoG0irziFHQefNM4gNfRc5RoHUCzkqniEsMpWL40NtnFNLXpll1eXnm
+B3l3QIO5AoGAZnWVyjmduct72phHKh42JL/9nl5bvQGjoFN5j6ThN8bea02saovE
+PW4qzoy2JnsAcak5q9Cv+6FfBCsgDDImzv9ydmdLVn3m356gBHmygyhtHdhyJJCN
+DMvmezJSkzlC3UB+8RGL1Ch75fwKLWFZaikXO6W/0KJgqhuNybyDl9U=
+-----END RSA PRIVATE KEY-----
+private_key_type    rsa
+serial_number       2c:bf:37:d7:73:d7:2b:a5:e6:51:43:fc:e1:01:4f:c9:ef:45:e0:a6
+
+➜  kubernetes-vault git:(kubernetes-vault) ✗ kubectl exec -it vault-0 -- vault write pki_int/revoke serial_number="2c:bf:37:d7:73:d7:2b:a5:e6:51:43:fc:e1:01:4f:c9:ef:45:e0:a6"
+Key                        Value
+---                        -----
+revocation_time            1618349331
+revocation_time_rfc3339    2021-04-13T21:28:51.87655956Z
+```
+![I did it](./kubernetes-vault/images/done.jpg)
