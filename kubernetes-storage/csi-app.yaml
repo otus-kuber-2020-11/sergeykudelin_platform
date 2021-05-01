@@ -1,7 +1,7 @@
 kind: Pod
 apiVersion: v1
 metadata:
-  name: csi-pod 
+  name: storage-pod 
 spec:
   containers:
     - name: my-frontend
