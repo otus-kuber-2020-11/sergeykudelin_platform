@@ -4,7 +4,7 @@ metadata:
   name: storage-pod 
 spec:
   containers:
-    - name: my-frontend
+    - name: storage-pod
       image: busybox
       volumeMounts:
       - mountPath: "/data"
@@ -13,4 +13,4 @@ spec:
   volumes:
     - name: csi-pvc
       persistentVolumeClaim:
-        claimName: csi-pvc-restore
+        claimName: csi-pvc
