@@ -941,3 +941,169 @@ revocation_time            1618349331
 revocation_time_rfc3339    2021-04-13T21:28:51.87655956Z
 ```
 ![I did it](./kubernetes-vault/images/done.jpg)
+
+---
+# Kubernetes - CSI, Storage
+
+## Base tasks
+
+- Activate CSI for minikube
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) minikube start 
+😄  minikube v1.19.0 on Darwin 11.2.3
+❗  Both driver=hyperkit and vm-driver=hyperkit have been set.
+
+    Since vm-driver is deprecated, minikube will default to driver=hyperkit.
+
+    If vm-driver is set in the global config, please run "minikube config unset vm-driver" to resolve this warning.
+
+✨  Using the hyperkit driver based on user configuration
+👍  Starting control plane node minikube in cluster minikube
+💾  Downloading Kubernetes v1.20.2 preload ...
+    > preloaded-images-k8s-v10-v1...: 491.71 MiB / 491.71 MiB  100.00% 4.02 MiB
+🔥  Creating hyperkit VM (CPUs=2, Memory=4000MB, Disk=20000MB) ...
+🐳  Preparing Kubernetes v1.20.2 on Docker 20.10.4 ...
+    ▪ Generating certificates and keys ...
+    ▪ Booting up control plane ...
+    ▪ Configuring RBAC rules ...
+🔎  Verifying Kubernetes components...
+    ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+🌟  Enabled addons: storage-provisioner, default-storageclass
+
+❗  /usr/local/bin/kubectl is version 1.18.6, which may have incompatibilites with Kubernetes 1.20.2.
+    ▪ Want kubectl v1.20.2? Try 'minikube kubectl -- get pods -A'
+🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+➜  sergeykudelin_platform git:(kubernetes-storage) minikube addons enable volumesnapshots    
+
+    ▪ Using image k8s.gcr.io/sig-storage/snapshot-controller:v4.0.0
+🌟  The 'volumesnapshots' addon is enabled
+➜  sergeykudelin_platform git:(kubernetes-storage) minikube addons enable csi-hostpath-driver
+
+    ▪ Using image k8s.gcr.io/sig-storage/csi-snapshotter:v4.0.0
+    ▪ Using image k8s.gcr.io/sig-storage/csi-provisioner:v2.1.0
+    ▪ Using image k8s.gcr.io/sig-storage/csi-external-health-monitor-controller:v0.2.0
+    ▪ Using image k8s.gcr.io/sig-storage/csi-node-driver-registrar:v2.0.1
+    ▪ Using image k8s.gcr.io/sig-storage/livenessprobe:v2.2.0
+    ▪ Using image k8s.gcr.io/sig-storage/csi-resizer:v1.1.0
+    ▪ Using image k8s.gcr.io/sig-storage/csi-attacher:v3.1.0
+    ▪ Using image k8s.gcr.io/sig-storage/csi-external-health-monitor-agent:v0.2.0
+    ▪ Using image k8s.gcr.io/sig-storage/hostpathplugin:v1.6.0
+🔎  Verifying csi-hostpath-driver addon...
+🌟  The 'csi-hostpath-driver' addon is enabled
+```
+- Check SC
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) kubectl get sc
+NAME                 PROVISIONER                RECLAIMPOLICY   VOLUMEBINDINGMODE   ALLOWVOLUMEEXPANSION   AGE
+csi-hostpath-sc      hostpath.csi.k8s.io        Delete          Immediate           false                  4m31s
+standard (default)   k8s.io/minikube-hostpath   Delete          Immediate           false                  5m44s
+```
+- Create PVC and check PV
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl apply -f kubernetes-storage/csi-pvc.yaml
+persistentvolumeclaim/csi-pvc created
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl get pvc
+NAME      STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+csi-pvc   Bound    pvc-f1b92a0b-0c70-46f1-a9d2-c4ffeb69a206   1Gi        RWO            csi-hostpath-sc   8s
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl get pv 
+NAME                                       CAPACITY   ACCESS MODES   RECLAIM POLICY   STATUS   CLAIM             STORAGECLASS      REASON   AGE
+pvc-f1b92a0b-0c70-46f1-a9d2-c4ffeb69a206   1Gi        RWO            Delete           Bound    default/csi-pvc   csi-hostpath-sc            11s
+```
+- Check properties of PVC
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl describe pvc csi-pvc
+Name:          csi-pvc
+Namespace:     default
+StorageClass:  csi-hostpath-sc
+Status:        Bound
+Volume:        pvc-f1b92a0b-0c70-46f1-a9d2-c4ffeb69a206
+Labels:        <none>
+Annotations:   pv.kubernetes.io/bind-completed: yes
+               pv.kubernetes.io/bound-by-controller: yes
+               volume.beta.kubernetes.io/storage-provisioner: hostpath.csi.k8s.io
+Finalizers:    [kubernetes.io/pvc-protection]
+Capacity:      1Gi
+Access Modes:  RWO
+VolumeMode:    Filesystem
+Mounted By:    <none>
+Events:
+...
+```
+- Create pod and create file
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl apply -f kubernetes-storage/csi-app.yaml 
+pod/sci-pod created
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl exec -it sci-pod -- /bin/sh
+/ # echo "File on CSI-volume" >> /data/file.txt
+/ # ls /data/file.txt
+/data/file.txt
+/ # exit
+```
+- Check file on host
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ minikube ssh
+                         _             _            
+            _         _ ( )           ( )           
+  ___ ___  (_)  ___  (_)| |/')  _   _ | |_      __  
+/' _ ` _ `\| |/' _ `\| || , <  ( ) ( )| '_`\  /'__`\
+| ( ) ( ) || || ( ) || || |\`\ | (_) || |_) )(  ___/
+(_) (_) (_)(_)(_) (_)(_)(_) (_)`\___/'(_,__/'`\____)
+
+$ sudo find / -name file.txt
+/mnt/vda1/var/lib/kubelet/pods/91006633-e0a0-4601-809d-53abca9a40d8/volumes/kubernetes.io~csi/pvc-f1b92a0b-0c70-46f1-a9d2-c4ffeb69a206/mount/file.txt
+/var/lib/csi-hostpath-data/04f425fe-aa42-11eb-9f84-0242ac110005/file.txt
+/var/lib/kubelet/pods/91006633-e0a0-4601-809d-53abca9a40d8/volumes/kubernetes.io~csi/pvc-f1b92a0b-0c70-46f1-a9d2-c4ffeb69a206/mount/file.txt
+```
+- Create snapshot
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl apply -f kubernetes-storage/csi-pvc-snapshot.yaml 
+volumesnapshot.snapshot.storage.k8s.io/snapshot-app created
+```
+- Check snapshot
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl get volumesnapshot
+NAME           READYTOUSE   SOURCEPVC   SOURCESNAPSHOTCONTENT   RESTORESIZE   SNAPSHOTCLASS            SNAPSHOTCONTENT                                    CREATIONTIME   AGE
+snapshot-app   true         csi-pvc                             1Gi           csi-hostpath-snapclass   snapcontent-5960342c-c735-434f-86ef-bceae3a8f98b   59s            59s
+```
+- Remove POD & PVC wt PV
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl delete -f kubernetes-storage/csi-app.yaml    
+pod "csi-pod" deleted
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl delete -f kubernetes-storage/csi-pvc.yaml 
+persistentvolumeclaim "csi-pvc" deleted
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl get pv
+No resources found in default namespace.
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ 
+```
+- Restore PVC
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl apply -f kubernetes-storage/csi-pvc-restore.yaml 
+persistentvolumeclaim/csi-pvc-restore created
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl get pvc
+NAME              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+csi-pvc-restore   Bound    pvc-9df7cdca-c1a5-4571-9b8e-6841bddcf256   1Gi        RWO            csi-hostpath-sc   11s
+```
+- Create pod with new name PVC
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl apply -f kubernetes-storage/csi-pvc-restore.yaml 
+persistentvolumeclaim/csi-pvc-restore created
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl get pvc
+
+NAME              STATUS   VOLUME                                     CAPACITY   ACCESS MODES   STORAGECLASS      AGE
+csi-pvc-restore   Bound    pvc-9df7cdca-c1a5-4571-9b8e-6841bddcf256   1Gi        RWO            csi-hostpath-sc   11s
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl apply -f kubernetes-storage/csi-app.yaml 
+pod/sci-pod created
+```
+- Check file
+```
+➜  sergeykudelin_platform git:(kubernetes-storage) ✗ kubectl exec -it csi-pod -- /bin/sh
+/ # ls /data
+file.txt
+/ # 
+```
+
+![The End](./kubernetes-storage/images/shakil_oneill.gif)
+---
+# Kubernetes - Next HomeWork
+
+## Base tasks
