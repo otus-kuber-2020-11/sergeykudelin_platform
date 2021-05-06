@@ -1104,6 +1104,204 @@ file.txt
 
 ![The End](./kubernetes-storage/images/shakil_oneill.gif)
 ---
-# Kubernetes - Next HomeWork
+# Kubernetes - Debug
 
-## Base tasks
+## Install 
+- Install cli
+```
+brew install aylei/tap/kubectl-debug
+```
+- Установил daemonset с версией 0.1.1, так как версия 0.0.1 имела особенность, а именно не включенный SYS_PTRACE по умолчанию, но определена в более поздней версии. Более новые версии тоже несут определенные проблемы, например с pull образа агента.
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/strace/kubectl-debug.yaml
+daemonset.apps/debug-agent created
+```
+-  Проверил возможность strace
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl-debug frontend --agentless=false
+Forwarding from 127.0.0.1:10027 -> 10027
+Forwarding from [::1]:10027 -> 10027
+Handling connection for 10027
+                             pulling image docker.io/nicolaka/netshoot:latest... 
+latest: Pulling from nicolaka/netshoot
+ba3557a56b15: Pull complete 
+b6950ffaa29e: Pull complete 
+f4e19f280112: Pull complete 
+98080a8ada1b: Pull complete 
+0a2f2053602a: Pull complete 
+ab1b1d3ce981: Pull complete 
+8ff9b7faf304: Pull complete 
+a226db7afe28: Pull complete 
+1110ea2ea993: Pull complete 
+1d5fe12c8162: Pull complete 
+Digest: sha256:f31f63ead49ba5bf47213ee213713bd81fdb4e1e72f25d87cbaaff7ba8ab2398
+Status: Downloaded newer image for nicolaka/netshoot:latest
+starting debug container...
+container created, open tty...
+bash-5.1# strace -c -p1
+strace: Process 1 attached
+```
+- Для следующего задания переподниму minikube c включенным calico
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ minikube start --network-plugin=cni --cni=calico --kubernetes-version v1.16.0
+😄  minikube v1.19.0 on Darwin 11.3
+❗  Both driver=hyperkit and vm-driver=hyperkit have been set.
+
+    Since vm-driver is deprecated, minikube will default to driver=hyperkit.
+
+    If vm-driver is set in the global config, please run "minikube config unset vm-driver" to resolve this warning.
+
+✨  Using the hyperkit driver based on user configuration
+❗  With --network-plugin=cni, you will need to provide your own CNI. See --cni flag as a user-friendly alternative
+👍  Starting control plane node minikube in cluster minikube
+🔥  Creating hyperkit VM (CPUs=2, Memory=4000MB, Disk=20000MB) ...
+🐳  Preparing Kubernetes v1.16.0 on Docker 20.10.4 ...
+    ▪ Generating certificates and keys ...
+    ▪ Booting up control plane ...
+    ▪ Configuring RBAC rules ...
+🔗  Configuring Calico (Container Networking Interface) ...
+🔎  Verifying Kubernetes components...
+    ▪ Using image gcr.io/k8s-minikube/storage-provisioner:v5
+🌟  Enabled addons: storage-provisioner, default-storageclass
+
+❗  /usr/local/bin/kubectl is version 1.18.6, which may have incompatibilites with Kubernetes 1.16.0.
+    ▪ Want kubectl v1.16.0? Try 'minikube kubectl -- get pods -A'
+🏄  Done! kubectl is now configured to use "minikube" cluster and "default" namespace by default
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ watch kubectl get pods -l k8s-app=calico-node -n kube-system
+
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl get pods -l k8s-app=calico-node -n kube-system 
+
+NAME                READY   STATUS    RESTARTS   AGE
+calico-node-mg2kw   1/1     Running   0          98s
+```
+- Копируем манифесты с официального репозитория kit/deploy
+- Применяем манифесты
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/deploy/crd.yaml 
+customresourcedefinition.apiextensions.k8s.io/netperfs.app.example.com created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/deploy/rbac.yaml 
+role.rbac.authorization.k8s.io/netperf-operator created
+rolebinding.rbac.authorization.k8s.io/default-account-netperf-operator created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/deploy/operator.yaml 
+deployment.apps/netperf-operator created
+```
+- Проверяем работоспособность
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/deploy/cr.yaml 
+netperf.app.example.com/example created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl get pod
+NAME                                READY   STATUS    RESTARTS   AGE
+netperf-client-48028c2ea67f         1/1     Running   0          3s
+netperf-operator-85569b59dd-226wv   1/1     Running   0          70s
+netperf-server-48028c2ea67f         1/1     Running   0          10s
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl describe netperf.app.example.com/example
+Name:         example
+Namespace:    default
+Labels:       <none>
+Annotations:  API Version:  app.example.com/v1alpha1
+Kind:         Netperf
+Metadata:
+  Creation Timestamp:  2021-05-05T18:55:21Z
+  Generation:          4
+  Resource Version:    1088
+  Self Link:           /apis/app.example.com/v1alpha1/namespaces/default/netperfs/example
+  UID:                 539154c2-a89c-4571-899c-48028c2ea67f
+Spec:
+  Client Node:  
+  Server Node:  
+Status:
+  Client Pod:          netperf-client-48028c2ea67f
+  Server Pod:          netperf-server-48028c2ea67f
+  Speed Bits Per Sec:  11152.91
+  Status:              Done
+Events:                <none>
+```
+- Применяем политику для calico и видим что тест не проходит
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/netperf-calico-policy.yaml 
+networkpolicy.crd.projectcalico.org/netperf-calico-policy created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl delete -f kubernetes-debug/kit/deploy/cr.yaml && kubectl apply -f kubernetes-debug/kit/deploy/cr.yaml 
+netperf.app.example.com "example" deleted
+netperf.app.example.com/example created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl describe netperf.app.example.com/example                Name:         example
+Namespace:    default
+Labels:       <none>
+Annotations:  API Version:  app.example.com/v1alpha1
+Kind:         Netperf
+Metadata:
+  Creation Timestamp:  2021-05-05T19:01:44Z
+  Generation:          3
+  Resource Version:    1378
+  Self Link:           /apis/app.example.com/v1alpha1/namespaces/default/netperfs/example
+  UID:                 960f614c-7ab6-40d8-be05-7908f4d4cb7e
+Spec:
+  Client Node:  
+  Server Node:  
+Status:
+  Client Pod:          netperf-client-7908f4d4cb7e
+  Server Pod:          netperf-server-7908f4d4cb7e
+  Speed Bits Per Sec:  0
+  Status:              Started test
+Events:                <none>
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ 
+```
+- Что бы понять что происходит, нам бы как то отслеживать drop пакетов, для этого будем использовать tailer, ставим ...
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/kit-serviceaccount.yaml 
+serviceaccount/kube-iptables-tailer created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/kit-clusterrole.yaml   
+clusterrole.rbac.authorization.k8s.io/kube-iptables-tailer created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/kit-clusterrolebinding.yaml 
+clusterrolebinding.rbac.authorization.k8s.io/kube-iptables-tailer created
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl apply -f kubernetes-debug/kit/kit-daemonset.yaml         
+daemonset.apps/kube-iptables-tailer created
+```
+- Что бы daemonset заработал нормально пришлось немного затюнить minikube
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ minikube ssh
+                         _             _            
+            _         _ ( )           ( )           
+  ___ ___  (_)  ___  (_)| |/')  _   _ | |_      __  
+/' _ ` _ `\| |/' _ `\| || , <  ( ) ( )| '_`\  /'__`\
+| ( ) ( ) || || ( ) || || |\`\ | (_) || |_) )(  ___/
+(_) (_) (_)(_)(_) (_)(_)(_) (_)`\___/'(_,__/'`\____)
+
+$ sudo mkdir /var/log/journal
+$ sudo systemd-tmpfiles --create --prefix /var/log/journal
+$ sudo systemctl restart systemd-journald
+```
+- Проверяем корректный старт
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl delete pod kube-iptables-tailer-j8rsx -n kube-system
+pod "kube-iptables-tailer-j8rsx" deleted
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl get pod -n kube-system                              
+NAME                                       READY   STATUS    RESTARTS   AGE
+calico-kube-controllers-77d6cbc65f-89wsc   1/1     Running   0          49m
+calico-node-mg2kw                          1/1     Running   0          49m
+coredns-5644d7b6d9-hwrm6                   1/1     Running   0          49m
+etcd-minikube                              1/1     Running   0          48m
+kube-apiserver-minikube                    1/1     Running   0          48m
+kube-controller-manager-minikube           1/1     Running   0          48m
+kube-iptables-tailer-qfbsz                 1/1     Running   0          54s
+kube-proxy-6xgjw                           1/1     Running   0          49m
+kube-scheduler-minikube                    1/1     Running   0          48m
+storage-provisioner                        1/1     Running   1          49m
+```
+- Попробуем посмотреть что поменяет по отношению описание pod в котором происходит тест
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl delete -f kubernetes-debug/kit/deploy/cr.yaml && kubectl apply -f kubernetes-debug/kit/deploy/cr.yaml
+netperf.app.example.com "example" deleted
+netperf.app.example.com/example created
+- Check event about DROP package
+```
+➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl describe pod netperf-server-cf23c6780c65
+...
+Events:
+  Type    Reason     Age        From                    Message
+  ----    ------     ----       ----                    -------
+  Normal  Scheduled  <unknown>  default-scheduler       Successfully assigned default/netperf-server-cf23c6780c65 to minikube
+  Normal  Pulled     31s        kubelet, minikube       Container image "tailoredcloud/netperf:v2.7" already present on machine
+  Normal  Created    31s        kubelet, minikube       Created container netperf-server-cf23c6780c65
+  Normal  Started    31s        kubelet, minikube       Started container netperf-server-cf23c6780c65
+  Warning PacketDrop 31s        kube-iptables-tailer    Packet dropped when receiving traffic from client (10.244.120.90)
+```
