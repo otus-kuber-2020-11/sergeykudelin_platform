@@ -1605,3 +1605,92 @@ Successfully built ansible
 Installing collected packages: pycparser, six, MarkupSafe, cffi, ruamel.yaml.clib, PyYAML, jinja2, cryptography, ruamel.yaml, pbr, netaddr, jmespath, ansible
 Successfully installed MarkupSafe-1.1.1 PyYAML-5.4.1 ansible-2.9.20 cffi-1.14.5 cryptography-2.8 jinja2-2.11.3 jmespath-0.9.5 netaddr-0.7.19 pbr-5.4.4 pycparser-2.20 ruamel.yaml-0.16.10 ruamel.yaml.clib-0.2.2 six-1.16.0
 
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ cd kubespray 
+
+(sergeykudelin_platform) ➜  kubespray git:(master) ansible-playbook -i inventory/cluster/inventory.ini --become --become-user=root --user=sergeykudelin --key-file="~/.ssh/google_compute_engine" cluster.yml
+
+PLAY RECAP ************************************************************************************************************************************************
+localhost                  : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+master0                    : ok=566  changed=121  unreachable=0    failed=0    skipped=1149 rescued=0    ignored=2   
+master1                    : ok=500  changed=109  unreachable=0    failed=0    skipped=1000 rescued=0    ignored=1   
+master2                    : ok=502  changed=110  unreachable=0    failed=0    skipped=998  rescued=0    ignored=1   
+worker0                    : ok=365  changed=77   unreachable=0    failed=0    skipped=623  rescued=0    ignored=1   
+worker1                    : ok=365  changed=77   unreachable=0    failed=0    skipped=622  rescued=0    ignored=1   
+
+Friday 14 May 2021  22:34:48 +0300 (0:00:00.111)       0:24:19.352 ************ 
+=============================================================================== 
+Gen_certs | Write etcd member and admin certs to other etcd nodes --------------------------------------------------------------------------------- 78.98s
+Gen_certs | Write etcd member and admin certs to other etcd nodes --------------------------------------------------------------------------------- 71.05s
+kubernetes-apps/ansible : Kubernetes Apps | Lay Down CoreDNS Template ----------------------------------------------------------------------------- 66.26s
+Gen_certs | Write node certs to other etcd nodes -------------------------------------------------------------------------------------------------- 54.96s
+Gen_certs | Write node certs to other etcd nodes -------------------------------------------------------------------------------------------------- 52.53s
+network_plugin/calico : Calico | Create calico manifests ------------------------------------------------------------------------------------------ 29.22s
+container-engine/docker : ensure docker packages are installed ------------------------------------------------------------------------------------ 25.28s
+kubernetes/control-plane : Joining control plane node to the cluster. ----------------------------------------------------------------------------- 21.63s
+Gen_certs | Gather etcd member and admin certs from first etcd node ------------------------------------------------------------------------------- 21.13s
+policy_controller/calico : Create calico-kube-controllers manifests ------------------------------------------------------------------------------- 20.76s
+kubernetes/kubeadm : Join to cluster -------------------------------------------------------------------------------------------------------------- 19.58s
+kubernetes/control-plane : kubeadm | Initialize first master -------------------------------------------------------------------------------------- 17.13s
+Gen_certs | Gather node certs from first etcd node ------------------------------------------------------------------------------------------------ 16.40s
+kubernetes-apps/ansible : Kubernetes Apps | Lay Down nodelocaldns Template ------------------------------------------------------------------------ 15.99s
+kubernetes-apps/ansible : Kubernetes Apps | Start Resources --------------------------------------------------------------------------------------- 15.00s
+Gen_certs | Gather etcd member and admin certs from first etcd node ------------------------------------------------------------------------------- 13.60s
+kubernetes/preinstall : Install packages requirements --------------------------------------------------------------------------------------------- 11.82s
+kubernetes/preinstall : Get current calico cluster version ----------------------------------------------------------------------------------------- 9.85s
+kubernetes/preinstall : Update package management cache (APT) -------------------------------------------------------------------------------------- 9.34s
+Gen_certs | Gather node certs from first etcd node ------------------------------------------------------------------------------------------------- 8.55s
+(sergeykudelin_platform) ➜  kubespray git:(master) 
+```
+
+- Проверяем nodes
+```
+root@master0:/home/sergeykudelin# kubectl get nodes
+NAME      STATUS   ROLES                  AGE     VERSION
+master0   Ready    control-plane,master   12m     v1.20.7
+master1   Ready    control-plane,master   11m     v1.20.7
+master2   Ready    control-plane,master   11m     v1.20.7
+worker0   Ready    <none>                 9m46s   v1.20.7
+worker1   Ready    <none>                 9m46s   v1.20.7
+root@master0:/home/sergeykudelin# 
+```
+
+- Проверяем pods
+```
+root@master0:/home/sergeykudelin# kubectl get pods -n kube-system -o wide
+NAME                                       READY   STATUS    RESTARTS   AGE     IP             NODE      NOMINATED NODE   READINESS GATES
+calico-kube-controllers-7c5b64bf96-2t59g   1/1     Running   1          8m42s   10.168.0.9     worker0   <none>           <none>
+calico-node-2cstt                          1/1     Running   0          9m37s   10.168.0.7     master1   <none>           <none>
+calico-node-7hdqb                          1/1     Running   0          9m37s   10.168.0.6     master0   <none>           <none>
+calico-node-ftgwv                          1/1     Running   0          9m37s   10.168.0.10    worker1   <none>           <none>
+calico-node-rx2nt                          1/1     Running   0          9m37s   10.168.0.9     worker0   <none>           <none>
+calico-node-zmp9h                          1/1     Running   0          9m37s   10.168.0.8     master2   <none>           <none>
+coredns-657959df74-gpwmq                   1/1     Running   0          6m48s   10.233.101.1   master0   <none>           <none>
+coredns-657959df74-ml6j2                   1/1     Running   0          6m57s   10.233.97.1    master1   <none>           <none>
+dns-autoscaler-b5c786945-fn54m             1/1     Running   0          6m49s   10.233.98.1    master2   <none>           <none>
+kube-apiserver-master0                     1/1     Running   0          13m     10.168.0.6     master0   <none>           <none>
+kube-apiserver-master1                     1/1     Running   0          12m     10.168.0.7     master1   <none>           <none>
+kube-apiserver-master2                     1/1     Running   0          12m     10.168.0.8     master2   <none>           <none>
+kube-controller-manager-master0            1/1     Running   0          13m     10.168.0.6     master0   <none>           <none>
+kube-controller-manager-master1            1/1     Running   0          12m     10.168.0.7     master1   <none>           <none>
+kube-controller-manager-master2            1/1     Running   0          12m     10.168.0.8     master2   <none>           <none>
+kube-proxy-29rpg                           1/1     Running   0          10m     10.168.0.7     master1   <none>           <none>
+kube-proxy-6fds4                           1/1     Running   0          10m     10.168.0.9     worker0   <none>           <none>
+kube-proxy-78npd                           1/1     Running   0          10m     10.168.0.8     master2   <none>           <none>
+kube-proxy-ldtwh                           1/1     Running   0          10m     10.168.0.10    worker1   <none>           <none>
+kube-proxy-zv9zx                           1/1     Running   0          10m     10.168.0.6     master0   <none>           <none>
+kube-scheduler-master0                     1/1     Running   0          13m     10.168.0.6     master0   <none>           <none>
+kube-scheduler-master1                     1/1     Running   0          12m     10.168.0.7     master1   <none>           <none>
+kube-scheduler-master2                     1/1     Running   0          12m     10.168.0.8     master2   <none>           <none>
+nginx-proxy-worker0                        1/1     Running   0          10m     10.168.0.9     worker0   <none>           <none>
+nginx-proxy-worker1                        1/1     Running   0          10m     10.168.0.10    worker1   <none>           <none>
+nodelocaldns-9dmvb                         1/1     Running   0          6m45s   10.168.0.6     master0   <none>           <none>
+nodelocaldns-9h7pg                         1/1     Running   0          6m45s   10.168.0.8     master2   <none>           <none>
+nodelocaldns-hp48r                         1/1     Running   0          6m45s   10.168.0.7     master1   <none>           <none>
+nodelocaldns-p8fmg                         1/1     Running   0          6m45s   10.168.0.10    worker1   <none>           <none>
+nodelocaldns-trjlp                         1/1     Running   0          6m45s   10.168.0.9     worker0   <none>           <none>
+root@master0:/home/sergeykudelin# 
+```
+
+Добби свободен?
+![The End](./kubernetes-production-cluster/images/dobby.png)
+
