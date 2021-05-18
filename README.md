@@ -1292,6 +1292,7 @@ storage-provisioner                        1/1     Running   1          49m
 ➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl delete -f kubernetes-debug/kit/deploy/cr.yaml && kubectl apply -f kubernetes-debug/kit/deploy/cr.yaml
 netperf.app.example.com "example" deleted
 netperf.app.example.com/example created
+```
 - Check event about DROP package
 ```
 ➜  sergeykudelin_platform git:(kubernetes-debug) ✗ kubectl describe pod netperf-server-cf23c6780c65
@@ -1305,3 +1306,391 @@ Events:
   Normal  Started    31s        kubelet, minikube       Started container netperf-server-cf23c6780c65
   Warning PacketDrop 31s        kube-iptables-tailer    Packet dropped when receiving traffic from client (10.244.120.90)
 ```
+
+
+# Kubernetes - Production Cluster
+
+## Manual Mode
+
+- Create instances
+```
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) for i in master worker0 worker1 worker2; do gcloud compute instances create $i --zone=us-west2-c --image-project=ubuntu-os-cloud --image-family=ubuntu-minimal-1804-lts --machine-type=n1-standard-2; done
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/master].
+NAME    ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+master  us-west2-c  n1-standard-2               10.168.0.2   35.236.48.122  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/worker0].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+worker0  us-west2-c  n1-standard-2               10.168.0.3   34.94.13.206  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/worker1].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+worker1  us-west2-c  n1-standard-2               10.168.0.4   34.94.58.121  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/worker2].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+worker2  us-west2-c  n1-standard-2               10.168.0.5   34.94.219.110  RUNNING
+```
+- Configure instances
+
+```
+# swap off
+root@master:/home/sergeykudelin# swapoff -a
+# route
+root@master:/home/sergeykudelin# cat > /etc/sysctl.d/99-kubernetes-cri.conf <<EOF
+> net.bridge.bridge-nf-call-iptables = 1
+> net.ipv4.ip_forward = 1
+> net.bridge.bridge-nf-call-ip6tables = 1
+> EOF
+root@master:/home/sergeykudelin# sysctl --system | grep 99-kubernetes
+* Applying /etc/sysctl.d/99-kubernetes-cri.conf ...
+# Установка Docker
+apt update && apt-get install -y apt-transport-https ca-certificates curl software-properties-common gnupg2
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | apt-key add - 
+add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+apt update && apt-get install -y \
+          containerd.io=1.2.13-1 \
+          docker-ce=5:19.03.8~3-0~ubuntu-$(lsb_release -cs) \
+          docker-ce-cli=5:19.03.8~3-0~ubuntu-$(lsb_release -cs)
+# Конфигурируем docker:
+cat > /etc/docker/daemon.json <<EOF
+{
+    "exec-opts": ["native.cgroupdriver=systemd"],
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "100m"
+    },
+    "storage-driver": "overlay2"
+}
+EOF
+# Добавляем как сервис
+mkdir -p /etc/systemd/system/docker.service.d && systemctl daemon-reload && systemctl restart docker
+```
+
+- Установка kubeadm, kubelet and kubectl
+
+```
+# kube repo
+curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | apt-key add -
+cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
+deb https://apt.kubernetes.io/ kubernetes-xenial main
+EOF
+# Xenial because repo doesn't have bionic release
+# k8s == 1.17
+apt update && apt install -y kubelet=1.17.4-00 kubeadm=1.17.4-00 kubectl=1.17.4-00
+```
+
+- Конфигурируем кластер
+
+```
+root@master:/home/sergeykudelin# kubeadm init --pod-network-cidr=192.168.0.0/24
+root@master:/home/sergeykudelin# mkdir -p $HOME/.kube
+root@master:/home/sergeykudelin# sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+root@master:/home/sergeykudelin# sudo chown $(id -u):$(id -g) $HOME/.kube/config
+root@master:/home/sergeykudelin# kubectl get nodes
+NAME     STATUS     ROLES    AGE   VERSION
+master   NotReady   master   13m   v1.17.4
+
+# Calico setup
+kubectl apply -f https://docs.projectcalico.org/manifests/calico.yaml
+```
+
+ - Добавляем worker node-ы
+
+```
+kubeadm join 10.168.0.2:6443 --token djgvl8.fzynwwoxjxycqaby \
+    --discovery-token-ca-cert-hash sha256:81ec79a819d05487891d76e29bef5b885d605c3bbdaac6a929f9359b327d9697
+
+#root@master:/home/sergeykudelin# kubectl get nodes
+master    Ready    master   19m   v1.17.4
+worker0   Ready    <none>   48s   v1.17.4
+worker1   Ready    <none>   48s   v1.17.4
+worker2   Ready    <none>   48s   v1.17.4
+```
+
+- Создаем Deployment
+```
+root@master:/home/sergeykudelin# kubectl apply -f deployment.yaml
+deployment.apps/nginx-deployment created
+root@master:/home/sergeykudelin# kubectl get pods
+NAME                               READY   STATUS    RESTARTS   AGE
+nginx-deployment-c8fd555cc-r7mv9   1/1     Running   0          64s
+nginx-deployment-c8fd555cc-rhz87   1/1     Running   0          64s
+nginx-deployment-c8fd555cc-vpdpw   1/1     Running   0          64s
+nginx-deployment-c8fd555cc-zhpt6   1/1     Running   0          64s
+```
+
+- Обновляем кластер
+```
+root@master:/home/sergeykudelin# apt update && apt-get install -y kubeadm=1.18.0-00 kubelet=1.18.0-00 kubectl=1.18.0-00
+Hit:1 https://download.docker.com/linux/ubuntu bionic InRelease
+Hit:2 http://us-west2.gce.archive.ubuntu.com/ubuntu bionic InRelease                                                                                      
+Get:4 http://us-west2.gce.archive.ubuntu.com/ubuntu bionic-updates InRelease [88.7 kB]                                                                    
+Get:5 http://us-west2.gce.archive.ubuntu.com/ubuntu bionic-backports InRelease [74.6 kB]                          
+Hit:3 https://packages.cloud.google.com/apt kubernetes-xenial InRelease                                   
+Get:6 http://security.ubuntu.com/ubuntu bionic-security InRelease [88.7 kB]                               
+Fetched 252 kB in 1s (314 kB/s)                                
+Reading package lists... Done
+Building dependency tree       
+Reading state information... Done
+6 packages can be upgraded. Run 'apt list --upgradable' to see them.
+Reading package lists... Done
+Building dependency tree       
+Reading state information... Done
+The following packages will be upgraded:
+  kubeadm kubectl kubelet
+3 upgraded, 0 newly installed, 0 to remove and 3 not upgraded.
+Need to get 36.4 MB of archives.
+After this operation, 2612 kB of additional disk space will be used.
+Get:1 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubelet amd64 1.18.0-00 [19.4 MB]
+Get:2 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubectl amd64 1.18.0-00 [8822 kB]
+Get:3 https://packages.cloud.google.com/apt kubernetes-xenial/main amd64 kubeadm amd64 1.18.0-00 [8163 kB]
+Fetched 36.4 MB in 2s (15.3 MB/s) 
+debconf: delaying package configuration, since apt-utils is not installed
+(Reading database ... 52866 files and directories currently installed.)
+Preparing to unpack .../kubelet_1.18.0-00_amd64.deb ...
+Unpacking kubelet (1.18.0-00) over (1.17.4-00) ...
+Preparing to unpack .../kubectl_1.18.0-00_amd64.deb ...
+Unpacking kubectl (1.18.0-00) over (1.17.4-00) ...
+Preparing to unpack .../kubeadm_1.18.0-00_amd64.deb ...
+Unpacking kubeadm (1.18.0-00) over (1.17.4-00) ...
+Setting up kubelet (1.18.0-00) ...
+Setting up kubectl (1.18.0-00) ...
+Setting up kubeadm (1.18.0-00) ...
+root@master:/home/sergeykudelin# kubectl get nodes
+NAME      STATUS   ROLES    AGE   VERSION
+master    Ready    master   25m   v1.18.0
+worker0   Ready    <none>    6m   v1.17.4
+worker1   Ready    <none>    6m   v1.17.4
+worker2   Ready    <none>    6m   v1.17.4
+```
+- Обновляем компоненты
+```
+root@master:/home/sergeykudelin# kubeadm upgrade plan
+...
+root@master:/home/sergeykudelin# kubeadm upgrade apply v1.18.0
+...
+[upgrade/successful] SUCCESS! Your cluster was upgraded to "v1.18.0". Enjoy!
+```
+
+- Обновляем node-ы
+```
+root@master:/home/sergeykudelin# kubectl drain worker0 --ignore-daemonsets
+root@master:/home/sergeykudelin# kubectl get nodes
+ NAME      STATUS                     ROLES    AGE   VERSION
+ master    Ready                      master   26m   v1.18.0
+ worker0   Ready,SchedulingDisabled   <none>    7m   v1.17.4
+ worker1   Ready                      <none>    7m   v1.17.4
+ worker2   Ready                      <none>    7m   v1.17.4
+
+apt install -y kubelet=1.18.0-00 kubeadm=1.18.0-00
+systemctl restart kubelet
+kubectl uncordon worker0
+
+
+root@master:/home/sergeykudelin# kubectl get nodes
+NAME      STATUS   ROLES    AGE   VERSION
+master    Ready    master   28m   v1.18.0
+worker0   Ready    <none>    9m   v1.18.0
+worker1   Ready    <none>    9m   v1.17.4
+worker2   Ready    <none>    9m   v1.17.4
+```
+## Kubespray Way
+
+- Создаем instance-ы
+
+```
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ for i in master0 master1 master2 worker0 worker1; do gcloud compute instances create $i --zone=us-west2-c --image-project=ubuntu-os-cloud --image-family=ubuntu-minimal-1804-lts --machine-type=n1-standard-2; done 
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/master0].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+master0  us-west2-c  n1-standard-2               10.168.0.6   34.94.58.121  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/master1].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP   STATUS
+master1  us-west2-c  n1-standard-2               10.168.0.7   34.94.13.206  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/master2].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+master2  us-west2-c  n1-standard-2               10.168.0.8   35.236.48.122  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/worker0].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP    STATUS
+worker0  us-west2-c  n1-standard-2               10.168.0.9   34.94.219.110  RUNNING
+Created [https://www.googleapis.com/compute/v1/projects/my-project-1512478941742/zones/us-west2-c/instances/worker1].
+NAME     ZONE        MACHINE_TYPE   PREEMPTIBLE  INTERNAL_IP  EXTERNAL_IP     STATUS
+worker1  us-west2-c  n1-standard-2               10.168.0.10  35.236.108.245  RUNNING
+```
+
+- Добавим свой ssh
+
+```
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ gcloud beta compute ssh --zone "us-west2-c" "master0"       
+Warning: Permanently added 'compute.6207459233293891678' (ECDSA) to the list of known hosts.
+***
+sergeykudelin@master0:~$ exit
+logout
+Connection to 34.94.58.121 closed.
+```
+
+- Конфигурация kubespray
+```
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ git clone https://github.com/kubernetes-sigs/kubespray.git
+
+Cloning into 'kubespray'...
+remote: Enumerating objects: 53743, done.
+remote: Counting objects: 100% (288/288), done.
+remote: Compressing objects: 100% (203/203), done.
+remote: Total 53743 (delta 109), reused 202 (delta 65), pack-reused 53455
+Receiving objects: 100% (53743/53743), 15.63 MiB | 757.00 KiB/s, done.
+Resolving deltas: 100% (30250/30250), done.
+
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ ansible-playbook --version
+ansible-playbook 2.9.5
+  config file = None
+  configured module search path = ['/Users/sergeykudelin/.ansible/plugins/modules', '/usr/share/ansible/plugins/modules']
+  ansible python module location = /Library/Frameworks/Python.framework/Versions/3.7/lib/python3.7/site-packages/ansible
+  executable location = /Library/Frameworks/Python.framework/Versions/3.7/bin/ansible-playbook
+  python version = 3.7.6 (v3.7.6:43364a7ae0, Dec 18 2019, 14:18:50) [Clang 6.0 (clang-600.0.57)]
+
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ pipenv --python 3.7
+Creating a virtualenv for this project...
+Pipfile: /Users/sergeykudelin/GIT/otus/sergeykudelin_platform/Pipfile
+Using /Library/Frameworks/Python.framework/Versions/3.7/bin/python3.7m (3.7.6) to create virtualenv...
+⠙ Creating virtual environment...created virtual environment CPython3.7.6.final.0-64 in 761ms
+  creator CPython3Posix(dest=/Users/sergeykudelin/.local/share/virtualenvs/sergeykudelin_platform-aLsAXhC8, clear=False, global=False)
+  seeder FromAppData(download=False, pip=bundle, setuptools=bundle, wheel=bundle, via=copy, app_data_dir=/Users/sergeykudelin/Library/Application Support/virtualenv)
+    added seed packages: pip==21.0.1, setuptools==53.0.0, wheel==0.36.2
+  activators BashActivator,CShellActivator,FishActivator,PowerShellActivator,PythonActivator,XonshActivator
+
+✔ Successfully created virtual environment! 
+Virtualenv location: /Users/sergeykudelin/.local/share/virtualenvs/sergeykudelin_platform-aLsAXhC8
+Creating a Pipfile for this project...
+
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ pipenv run pip install -r kubespray/requirements.txt 
+Collecting ansible==2.9.20
+  Downloading ansible-2.9.20.tar.gz (14.3 MB)
+     |████████████████████████████████| 14.3 MB 2.3 MB/s 
+Collecting cryptography==2.8
+  Downloading cryptography-2.8-cp34-abi3-macosx_10_6_intel.whl (1.6 MB)
+     |████████████████████████████████| 1.6 MB 3.1 MB/s 
+Collecting jinja2==2.11.3
+  Downloading Jinja2-2.11.3-py2.py3-none-any.whl (125 kB)
+     |████████████████████████████████| 125 kB 1.3 MB/s 
+Collecting netaddr==0.7.19
+  Downloading netaddr-0.7.19-py2.py3-none-any.whl (1.6 MB)
+     |████████████████████████████████| 1.6 MB 1.9 MB/s 
+Collecting pbr==5.4.4
+  Downloading pbr-5.4.4-py2.py3-none-any.whl (110 kB)
+     |████████████████████████████████| 110 kB 2.6 MB/s 
+Collecting jmespath==0.9.5
+  Downloading jmespath-0.9.5-py2.py3-none-any.whl (24 kB)
+Collecting ruamel.yaml==0.16.10
+  Downloading ruamel.yaml-0.16.10-py2.py3-none-any.whl (111 kB)
+     |████████████████████████████████| 111 kB 169 kB/s 
+Collecting MarkupSafe==1.1.1
+  Downloading MarkupSafe-1.1.1-cp37-cp37m-macosx_10_9_x86_64.whl (16 kB)
+Collecting PyYAML
+  Downloading PyYAML-5.4.1-cp37-cp37m-macosx_10_9_x86_64.whl (249 kB)
+     |████████████████████████████████| 249 kB 2.2 MB/s 
+Collecting six>=1.4.1
+  Downloading six-1.16.0-py2.py3-none-any.whl (11 kB)
+Collecting cffi!=1.11.3,>=1.8
+  Downloading cffi-1.14.5-cp37-cp37m-macosx_10_9_x86_64.whl (176 kB)
+     |████████████████████████████████| 176 kB 2.7 MB/s 
+Collecting ruamel.yaml.clib>=0.1.2
+  Downloading ruamel.yaml.clib-0.2.2-cp37-cp37m-macosx_10_9_x86_64.whl (147 kB)
+     |████████████████████████████████| 147 kB 2.8 MB/s 
+Collecting pycparser
+  Downloading pycparser-2.20-py2.py3-none-any.whl (112 kB)
+     |████████████████████████████████| 112 kB 3.4 MB/s 
+Building wheels for collected packages: ansible
+  Building wheel for ansible (setup.py) ... done
+  Created wheel for ansible: filename=ansible-2.9.20-py3-none-any.whl size=16203439 sha256=eef5a30a32c623db592ed7b2191efdd537d523e52c453179ffbeb9fcc4030113
+  Stored in directory: /private/var/folders/kp/_1hzq2bx4cb2w_g4h52s9xj00000gp/T/pip-ephem-wheel-cache-qq2xp30u/wheels/55/6c/ef/50eac044302d863dba57c8199e98bf5a7a241678b057649831
+Successfully built ansible
+Installing collected packages: pycparser, six, MarkupSafe, cffi, ruamel.yaml.clib, PyYAML, jinja2, cryptography, ruamel.yaml, pbr, netaddr, jmespath, ansible
+Successfully installed MarkupSafe-1.1.1 PyYAML-5.4.1 ansible-2.9.20 cffi-1.14.5 cryptography-2.8 jinja2-2.11.3 jmespath-0.9.5 netaddr-0.7.19 pbr-5.4.4 pycparser-2.20 ruamel.yaml-0.16.10 ruamel.yaml.clib-0.2.2 six-1.16.0
+
+➜  sergeykudelin_platform git:(kubernetes-production-clusters) ✗ cd kubespray 
+
+(sergeykudelin_platform) ➜  kubespray git:(master) ansible-playbook -i inventory/cluster/inventory.ini --become --become-user=root --user=sergeykudelin --key-file="~/.ssh/google_compute_engine" cluster.yml
+
+PLAY RECAP ************************************************************************************************************************************************
+localhost                  : ok=3    changed=0    unreachable=0    failed=0    skipped=0    rescued=0    ignored=0   
+master0                    : ok=566  changed=121  unreachable=0    failed=0    skipped=1149 rescued=0    ignored=2   
+master1                    : ok=500  changed=109  unreachable=0    failed=0    skipped=1000 rescued=0    ignored=1   
+master2                    : ok=502  changed=110  unreachable=0    failed=0    skipped=998  rescued=0    ignored=1   
+worker0                    : ok=365  changed=77   unreachable=0    failed=0    skipped=623  rescued=0    ignored=1   
+worker1                    : ok=365  changed=77   unreachable=0    failed=0    skipped=622  rescued=0    ignored=1   
+
+Friday 14 May 2021  22:34:48 +0300 (0:00:00.111)       0:24:19.352 ************ 
+=============================================================================== 
+Gen_certs | Write etcd member and admin certs to other etcd nodes --------------------------------------------------------------------------------- 78.98s
+Gen_certs | Write etcd member and admin certs to other etcd nodes --------------------------------------------------------------------------------- 71.05s
+kubernetes-apps/ansible : Kubernetes Apps | Lay Down CoreDNS Template ----------------------------------------------------------------------------- 66.26s
+Gen_certs | Write node certs to other etcd nodes -------------------------------------------------------------------------------------------------- 54.96s
+Gen_certs | Write node certs to other etcd nodes -------------------------------------------------------------------------------------------------- 52.53s
+network_plugin/calico : Calico | Create calico manifests ------------------------------------------------------------------------------------------ 29.22s
+container-engine/docker : ensure docker packages are installed ------------------------------------------------------------------------------------ 25.28s
+kubernetes/control-plane : Joining control plane node to the cluster. ----------------------------------------------------------------------------- 21.63s
+Gen_certs | Gather etcd member and admin certs from first etcd node ------------------------------------------------------------------------------- 21.13s
+policy_controller/calico : Create calico-kube-controllers manifests ------------------------------------------------------------------------------- 20.76s
+kubernetes/kubeadm : Join to cluster -------------------------------------------------------------------------------------------------------------- 19.58s
+kubernetes/control-plane : kubeadm | Initialize first master -------------------------------------------------------------------------------------- 17.13s
+Gen_certs | Gather node certs from first etcd node ------------------------------------------------------------------------------------------------ 16.40s
+kubernetes-apps/ansible : Kubernetes Apps | Lay Down nodelocaldns Template ------------------------------------------------------------------------ 15.99s
+kubernetes-apps/ansible : Kubernetes Apps | Start Resources --------------------------------------------------------------------------------------- 15.00s
+Gen_certs | Gather etcd member and admin certs from first etcd node ------------------------------------------------------------------------------- 13.60s
+kubernetes/preinstall : Install packages requirements --------------------------------------------------------------------------------------------- 11.82s
+kubernetes/preinstall : Get current calico cluster version ----------------------------------------------------------------------------------------- 9.85s
+kubernetes/preinstall : Update package management cache (APT) -------------------------------------------------------------------------------------- 9.34s
+Gen_certs | Gather node certs from first etcd node ------------------------------------------------------------------------------------------------- 8.55s
+(sergeykudelin_platform) ➜  kubespray git:(master) 
+```
+
+- Проверяем nodes
+```
+root@master0:/home/sergeykudelin# kubectl get nodes
+NAME      STATUS   ROLES                  AGE     VERSION
+master0   Ready    control-plane,master   12m     v1.20.7
+master1   Ready    control-plane,master   11m     v1.20.7
+master2   Ready    control-plane,master   11m     v1.20.7
+worker0   Ready    <none>                 9m46s   v1.20.7
+worker1   Ready    <none>                 9m46s   v1.20.7
+root@master0:/home/sergeykudelin# 
+```
+
+- Проверяем pods
+```
+root@master0:/home/sergeykudelin# kubectl get pods -n kube-system -o wide
+NAME                                       READY   STATUS    RESTARTS   AGE     IP             NODE      NOMINATED NODE   READINESS GATES
+calico-kube-controllers-7c5b64bf96-2t59g   1/1     Running   1          8m42s   10.168.0.9     worker0   <none>           <none>
+calico-node-2cstt                          1/1     Running   0          9m37s   10.168.0.7     master1   <none>           <none>
+calico-node-7hdqb                          1/1     Running   0          9m37s   10.168.0.6     master0   <none>           <none>
+calico-node-ftgwv                          1/1     Running   0          9m37s   10.168.0.10    worker1   <none>           <none>
+calico-node-rx2nt                          1/1     Running   0          9m37s   10.168.0.9     worker0   <none>           <none>
+calico-node-zmp9h                          1/1     Running   0          9m37s   10.168.0.8     master2   <none>           <none>
+coredns-657959df74-gpwmq                   1/1     Running   0          6m48s   10.233.101.1   master0   <none>           <none>
+coredns-657959df74-ml6j2                   1/1     Running   0          6m57s   10.233.97.1    master1   <none>           <none>
+dns-autoscaler-b5c786945-fn54m             1/1     Running   0          6m49s   10.233.98.1    master2   <none>           <none>
+kube-apiserver-master0                     1/1     Running   0          13m     10.168.0.6     master0   <none>           <none>
+kube-apiserver-master1                     1/1     Running   0          12m     10.168.0.7     master1   <none>           <none>
+kube-apiserver-master2                     1/1     Running   0          12m     10.168.0.8     master2   <none>           <none>
+kube-controller-manager-master0            1/1     Running   0          13m     10.168.0.6     master0   <none>           <none>
+kube-controller-manager-master1            1/1     Running   0          12m     10.168.0.7     master1   <none>           <none>
+kube-controller-manager-master2            1/1     Running   0          12m     10.168.0.8     master2   <none>           <none>
+kube-proxy-29rpg                           1/1     Running   0          10m     10.168.0.7     master1   <none>           <none>
+kube-proxy-6fds4                           1/1     Running   0          10m     10.168.0.9     worker0   <none>           <none>
+kube-proxy-78npd                           1/1     Running   0          10m     10.168.0.8     master2   <none>           <none>
+kube-proxy-ldtwh                           1/1     Running   0          10m     10.168.0.10    worker1   <none>           <none>
+kube-proxy-zv9zx                           1/1     Running   0          10m     10.168.0.6     master0   <none>           <none>
+kube-scheduler-master0                     1/1     Running   0          13m     10.168.0.6     master0   <none>           <none>
+kube-scheduler-master1                     1/1     Running   0          12m     10.168.0.7     master1   <none>           <none>
+kube-scheduler-master2                     1/1     Running   0          12m     10.168.0.8     master2   <none>           <none>
+nginx-proxy-worker0                        1/1     Running   0          10m     10.168.0.9     worker0   <none>           <none>
+nginx-proxy-worker1                        1/1     Running   0          10m     10.168.0.10    worker1   <none>           <none>
+nodelocaldns-9dmvb                         1/1     Running   0          6m45s   10.168.0.6     master0   <none>           <none>
+nodelocaldns-9h7pg                         1/1     Running   0          6m45s   10.168.0.8     master2   <none>           <none>
+nodelocaldns-hp48r                         1/1     Running   0          6m45s   10.168.0.7     master1   <none>           <none>
+nodelocaldns-p8fmg                         1/1     Running   0          6m45s   10.168.0.10    worker1   <none>           <none>
+nodelocaldns-trjlp                         1/1     Running   0          6m45s   10.168.0.9     worker0   <none>           <none>
+root@master0:/home/sergeykudelin# 
+```
+
+Добби свободен?
+![The End](./kubernetes-production-cluster/images/dobby.png)
+
